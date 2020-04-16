@@ -42,8 +42,8 @@ def convert(dataset, configs):
                 - name
                 - class
                 - image
-                - embeddings
-                - texts
+                - 5 embeddings
+                - 5 texts
 
     Inputs:
         - dataset: the name of the dataset
@@ -110,13 +110,13 @@ def convert(dataset, configs):
             embds = embds[rand_inds]
             dt = h5py.special_dtype(vlen=str)
 
-            for i, embd in enumerate(embds):
-                example = split.create_group(name + '_' + str(i))
-                example.create_dataset('name', data=name)
-                example.create_dataset('class', data=_class.name)
-                example.create_dataset('image', data=np.void(img))
-                example.create_dataset('embeddings', data=embd)
-                example.create_dataset('texts', data=texts[i], dtype=dt)
+            example = split.create_group(name)
+            example.create_dataset('name', data=name)
+            example.create_dataset('class', data=_class.name)
+            example.create_dataset('image', data=np.void(img))
+            example.create_dataset('embeddings', data=embds)
+            example.create_dataset('texts', data=texts, dtype=dt)
+
         bar.next()
     bar.finish()
     hf.close()
