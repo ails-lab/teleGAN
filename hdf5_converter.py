@@ -119,6 +119,7 @@ def convert(dataset, configs):
                 example.create_dataset('texts', data=texts[i], dtype=dt)
         bar.next()
     bar.finish()
+    hf.close()
 
 
 if __name__ == "__main__":
