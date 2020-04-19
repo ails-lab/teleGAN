@@ -9,6 +9,7 @@ from argparse import ArgumentParser
 from matplotlib import image
 from matplotlib import pyplot as plt
 from progress.bar import Bar
+from glob import glob
 
 
 def get_lines(file):
@@ -87,20 +88,47 @@ def convert(dataset, configs):
 
         for embd_file in os.scandir(_class.path):
             name = embd_file.name.split('.')[0]
-
-            img = open(f"{configs['images_path']}/{name}.jpg", 'rb').read()
-
-            texts = np.array(
-                get_lines(
-                    f"{configs['descriptions_path']}/{_class.name}/{name}.txt"
-                ),
-                dtype=h5py.string_dtype(encoding='utf-8')
-            )
-
-            embds = torchfile.load(
+            tf = torchfile.load(
                 embd_file.path,
                 force_8bytes_long=True
-            )[b'txt']
+            )
+
+            img = open(
+                os.path.join(
+                    configs['images_path'],
+                    tf[b'img'].decode('UTF-8')
+                ),
+                'rb'
+            ).read()
+            # img = open(f"{configs['images_path']}/{name}.jpg", 'rb').read()
+            try:
+                texts = np.array(
+                    get_lines(
+                        f"{configs['descriptions_path']}"
+                        f"/{_class.name}/{name}.txt"
+                    ),
+                    dtype=h5py.string_dtype(encoding='utf-8')
+                )
+            except FileNotFoundError:
+                # Some classes in the CUB dataset have plural form in the
+                # _icml directory but singular form in the text_c10 directory
+                filename = (
+                    f"{configs['descriptions_path']}/"
+                    f"{_class.name[:3]}*/{name}.txt"
+                )
+                dest_list = glob(filename)
+                if dest_list:
+                    dest = dest_list[0]
+                else:
+                    print(f"No such file: {filename}")
+                    sys.exit(1)
+
+                texts = np.array(
+                    get_lines(dest),
+                    dtype=h5py.string_dtype(encoding='utf-8')
+                )
+
+            embds = tf[b'txt']
 
             # The data contain 10 descriptions per image. As described
             # in the original paper, we will use only 5 of them.
