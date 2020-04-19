@@ -100,7 +100,7 @@ def convert(dataset, configs):
                 ),
                 'rb'
             ).read()
-            # img = open(f"{configs['images_path']}/{name}.jpg", 'rb').read()
+
             try:
                 texts = np.array(
                     get_lines(
