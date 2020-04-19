@@ -1,6 +1,6 @@
 {
   "flowers": {
-    "images_path": "<path to>/jpg",
+    "images_path": "<path to>/flowers/images",
     "embeddings_path": "<path to>/flowers_icml",
     "descriptions_path": "<path to>/text_c10",
     "train_file": "<path to>/flowers_icml/trainclasses.txt",
@@ -8,11 +8,11 @@
     "test_file": "<path to>/flowers_icml/testclasses.txt"
   },
   "birds": {
-    "images_path": "<path to>/jpg",
-    "embeddings_path": "<path to>/flowers_icml",
+    "images_path": "<path to>/cub/images",
+    "embeddings_path": "<path to>/cub_icml",
     "descriptions_path": "<path to>/text_c10",
-    "train_file": "<path to>/flowers_icml/trainclasses.txt",
-    "val_file": "<path to>/flowers_icml/valclasses.txt",
-    "test_file": "<path to>/flowers_icml/testclasses.txt"
+    "train_file": "<path to>/cub_icml/trainclasses.txt",
+    "val_file": "<path to>/cub_icml/valclasses.txt",
+    "test_file": "<path to>/cub_icml/testclasses.txt"
   }
 }
