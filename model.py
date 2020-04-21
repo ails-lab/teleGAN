@@ -4,17 +4,19 @@ import numpy as np
 
 
 class Generator(nn.Module):
-    """Generator class of Text To Image Synthesis GAN."""
+    """Generator class of Text To Image Synthesis GAN.
+
+    Args:
+        - ne (int, optional): Original embeddings dimensions.
+        - nt (int, optional): Projected embeddings dimensions.
+        - nz (int, optional): Dimension of the noise input.
+        - ngf (int, optional): Number of generator filters in the
+            first convolutional layer.
+    """
 
     def __init__(self, ne=1024, nt=128, nz=100, ngf=128):
         """Initialize the Generator.
 
-        Args:
-           - ne (int, optional): Original embeddings dimensions.
-           - nt (int, optional): Projected embeddings dimensions.
-           - nz (int, optional): Dimension of the noise input.
-           - ngf (int, optional): Number of generator filters in the
-                first convolutional layer.
         Other attributes:
             - nc (int): Number of channels.
         """
@@ -174,16 +176,18 @@ class Generator(nn.Module):
 
 
 class Discriminator(nn.Module):
-    """Discriminator class of Text To Image Synthesis GAN."""
+    """Discriminator class of Text To Image Synthesis GAN.
+
+    Args:
+        - ne (int, optional): Original embeddings dimensions.
+        - nt (int, optional): Projected embeddings dimensions.
+        - ndf (int, optional): Number of discriminator filters in the
+            first convolutional layer.
+    """
 
     def __init__(self, ne=1024, nt=128, ndf=64):
         """Initialize the Discriminator.
 
-        Args:
-           - ne (int, optional): Original embeddings dimensions.
-           - nt (int, optional): Projected embeddings dimensions.
-           - ndf (int, optional): Number of discriminator filters in the
-                first convolutional layer.
         Other attributes:
             - nc (int): Number of channels.
         """
