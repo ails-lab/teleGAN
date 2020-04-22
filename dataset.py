@@ -13,6 +13,7 @@ class Txt2ImgDataset(Dataset):
         - data (string): Path to the h5 file with the data.
         - split (string): 'train', 'val' or 'test' split.
         - img_size (int, optional): Size for the images in the dataset.
+            (Default: 64)
         - transform (callable, optional): Optional transform to be applied
             on the image of a sample.
     """
