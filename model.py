@@ -7,11 +7,11 @@ class Generator(nn.Module):
     """Generator class of Text To Image Synthesis GAN.
 
     Args:
-        - ne (int, optional): Original embeddings dimensions.
-        - nt (int, optional): Projected embeddings dimensions.
-        - nz (int, optional): Dimension of the noise input.
+        - ne (int, optional): Original embeddings dimensions. (Default: 1024)
+        - nt (int, optional): Projected embeddings dimensions. (Default: 128)
+        - nz (int, optional): Dimension of the noise input. (Default: 100)
         - ngf (int, optional): Number of generator filters in the
-            first convolutional layer.
+            first convolutional layer. (Default: 128)
     """
 
     def __init__(self, ne=1024, nt=128, nz=100, ngf=128):
@@ -179,10 +179,10 @@ class Discriminator(nn.Module):
     """Discriminator class of Text To Image Synthesis GAN.
 
     Args:
-        - ne (int, optional): Original embeddings dimensions.
-        - nt (int, optional): Projected embeddings dimensions.
+        - ne (int, optional): Original embeddings dimensions. (Default: 1024)
+        - nt (int, optional): Projected embeddings dimensions. (Default: 128)
         - ndf (int, optional): Number of discriminator filters in the
-            first convolutional layer.
+            first convolutional layer. (Default: 64)
     """
 
     def __init__(self, ne=1024, nt=128, ndf=64):
