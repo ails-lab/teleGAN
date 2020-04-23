@@ -39,7 +39,7 @@ class Generator(nn.Module):
                 kernel_size=4,
                 stride=1,
                 padding=0,
-                bias=False
+                bias=True
             ),
             nn.BatchNorm2d(num_features=ngf * 8)
         )
@@ -51,7 +51,7 @@ class Generator(nn.Module):
                 kernel_size=1,
                 stride=1,
                 padding=0,
-                bias=False
+                bias=True
             ),
             nn.BatchNorm2d(num_features=ngf * 2),
             nn.ReLU(inplace=True),
@@ -62,7 +62,7 @@ class Generator(nn.Module):
                 kernel_size=3,
                 stride=1,
                 padding=1,
-                bias=False
+                bias=True
             ),
             nn.BatchNorm2d(num_features=ngf * 2),
             nn.ReLU(inplace=True),
@@ -73,7 +73,7 @@ class Generator(nn.Module):
                 kernel_size=3,
                 stride=1,
                 padding=1,
-                bias=False
+                bias=True
             ),
             nn.BatchNorm2d(num_features=ngf * 8)
         )
@@ -86,7 +86,7 @@ class Generator(nn.Module):
                 kernel_size=4,
                 stride=2,
                 padding=1,
-                bias=False
+                bias=True
             ),
             nn.BatchNorm2d(num_features=ngf * 4)
         )
@@ -98,7 +98,7 @@ class Generator(nn.Module):
                 kernel_size=1,
                 stride=1,
                 padding=0,
-                bias=False
+                bias=True
             ),
             nn.BatchNorm2d(num_features=ngf),
             nn.ReLU(inplace=True),
@@ -109,7 +109,7 @@ class Generator(nn.Module):
                 kernel_size=3,
                 stride=1,
                 padding=1,
-                bias=False
+                bias=True
             ),
             nn.BatchNorm2d(num_features=ngf),
             nn.ReLU(inplace=True),
@@ -120,7 +120,7 @@ class Generator(nn.Module):
                 kernel_size=3,
                 stride=1,
                 padding=1,
-                bias=False
+                bias=True
             ),
             nn.BatchNorm2d(num_features=ngf * 4)
         )
@@ -133,7 +133,7 @@ class Generator(nn.Module):
                 kernel_size=4,
                 stride=2,
                 padding=1,
-                bias=False
+                bias=True
             ),
             nn.BatchNorm2d(num_features=ngf * 2),
             nn.ReLU(inplace=True),
@@ -145,7 +145,7 @@ class Generator(nn.Module):
                 kernel_size=4,
                 stride=2,
                 padding=1,
-                bias=False
+                bias=True
             ),
             nn.BatchNorm2d(num_features=ngf),
             nn.ReLU(inplace=True),
@@ -157,7 +157,7 @@ class Generator(nn.Module):
                 kernel_size=4,
                 stride=2,
                 padding=1,
-                bias=False
+                bias=True
             ),
             nn.Tanh()
             # state size: (nc) x 64 x 64
@@ -203,7 +203,7 @@ class Discriminator(nn.Module):
                 kernel_size=4,
                 stride=2,
                 padding=1,
-                bias=False
+                bias=True
             ),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
 
@@ -214,7 +214,7 @@ class Discriminator(nn.Module):
                 kernel_size=4,
                 stride=2,
                 padding=1,
-                bias=False
+                bias=True
             ),
             nn.BatchNorm2d(num_features=ndf * 2),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
@@ -226,7 +226,7 @@ class Discriminator(nn.Module):
                 kernel_size=4,
                 stride=2,
                 padding=1,
-                bias=False
+                bias=True
             ),
             nn.BatchNorm2d(num_features=ndf * 4),
 
@@ -237,7 +237,7 @@ class Discriminator(nn.Module):
                 kernel_size=4,
                 stride=2,
                 padding=1,
-                bias=False
+                bias=True
             ),
             nn.BatchNorm2d(num_features=ndf * 8)
         )
@@ -249,7 +249,7 @@ class Discriminator(nn.Module):
                 kernel_size=1,
                 stride=1,
                 padding=0,
-                bias=False
+                bias=True
             ),
             nn.BatchNorm2d(num_features=ndf * 2),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
@@ -260,7 +260,7 @@ class Discriminator(nn.Module):
                 kernel_size=3,
                 stride=1,
                 padding=1,
-                bias=False
+                bias=True
             ),
             nn.BatchNorm2d(num_features=ndf * 2),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
@@ -271,7 +271,7 @@ class Discriminator(nn.Module):
                 kernel_size=3,
                 stride=1,
                 padding=1,
-                bias=False
+                bias=True
             ),
             nn.BatchNorm2d(num_features=ndf * 8)
         )
@@ -294,7 +294,7 @@ class Discriminator(nn.Module):
                 kernel_size=1,
                 stride=1,
                 padding=0,
-                bias=False
+                bias=True
             ),
             nn.BatchNorm2d(num_features=ndf * 8),
             nn.LeakyReLU(negative_slope=0.2, inplace=True),
@@ -304,7 +304,7 @@ class Discriminator(nn.Module):
                 kernel_size=4,
                 stride=1,
                 padding=0,
-                bias=False
+                bias=True
             ),
             nn.Sigmoid()
         )
