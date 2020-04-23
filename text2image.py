@@ -13,9 +13,7 @@ from matplotlib import pyplot as plt
 from dataset import Txt2ImgDataset
 from model import Generator, Discriminator
 
-# TODO:
-# 1) INITIALIZE WEIGHTS
-# 2) ADD CUDA SUPPORT
+# TODO: ADD CUDA SUPPORT
 
 
 class Text2Image(object):
@@ -98,11 +96,14 @@ class Text2Image(object):
             nz=nz,
             ngf=ngf
         )
+        self.generator.apply(self.init_weights)
+
         self.discriminator = Discriminator(
             ne=ne,
             nt=nt,
             ndf=ndf
         )
+        self.discriminator.apply(self.init_weights)
 
     def save_images(self, images, epoch=-1):
         """Save a single or a batch of images.
@@ -242,6 +243,21 @@ class Text2Image(object):
             os.makedirs(self.checkpoints_dir)
 
         self.save_images(real_images, 0)
+
+    def init_weights(self, m):
+        """Initialize the weights.
+
+        This method is applied to each layer of the Generator's and
+        Discriminator's layers in order to initliaze theirs weights
+        and biases.
+        """
+        name = torch.typename(m)
+        if 'Conv' in name:
+            m.weight.data.normal_(0.0, 0.02)
+            m.bias.data.fill_(0)
+        elif 'BatchNorm' in name:
+            m.weight.data.normal_(1.0, 0.02)
+            m.bias.data.fill_(0)
 
     def evaluate(self, epoch):
         """Generate images for the num_test test samples selected.
