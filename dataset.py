@@ -30,12 +30,14 @@ class Txt2ImgDataset(Dataset):
         self.img_size = img_size
         self.transform = transform
 
-        self.hf = h5py.File(data, 'r')[split]
-        self.keys = [str(key) for key in self.hf.keys()]
+        self.hf = None
+        self.keys = None
+        with h5py.File(data, 'r') as f:
+            self.ds_len = len(f[split])
 
     def __len__(self):
         """Return the length of the dataset split."""
-        return len(self.hf)
+        return self.ds_len
 
     def get_img(self, key):
         """Return the image corresponding to the key as a PIL Image."""
@@ -54,6 +56,10 @@ class Txt2ImgDataset(Dataset):
 
     def __getitem__(self, idx):
         """Return a sample of the dataset."""
+        if self.hf is None:
+            self.hf = h5py.File(self.data, 'r')[self.split]
+            self.keys = [str(key) for key in self.hf.keys()]
+
         key = self.keys[idx]
 
         img = self.get_img(key)
