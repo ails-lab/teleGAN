@@ -13,8 +13,6 @@ from matplotlib import pyplot as plt
 from dataset import Txt2ImgDataset
 from model import Generator, Discriminator
 
-# TODO: ADD CUDA SUPPORT
-
 
 class Text2Image(object):
     """Text2Image class for the Text To Image Synthesis GAN.
@@ -49,13 +47,31 @@ class Text2Image(object):
         nz=100,
         ngf=128,
         ndf=64,
-        num_test=200
+        num_test=200,
+        device=None
     ):
         """Initialize the Text2Image model."""
         self.nz = nz
         self.nc = nc
         self.img_size = img_size
         self.num_test = num_test
+
+        if not device:
+            self.device = torch.device(
+                "cuda" if torch.cuda.is_available() else "cpu"
+            )
+        elif device == "cuda":
+            if torch.cuda.is_available():
+                self.device = torch.device("cuda")
+            else:
+                print("[ERROR] CUDA is not available.")
+                sys.exit(1)
+        elif device == "cpu":
+            self.device = torch.device("cpu")
+        else:
+            print("[ERROR] Wrong device input. ('cpu' or 'cuda')")
+            sys.exit(1)
+
         self.total_G_losses = []
         self.total_D_losses = []
         self.test_z = torch.randn(num_test, nz, 1, 1)
@@ -65,7 +81,7 @@ class Text2Image(object):
         self.checkpoints_dir = None
 
         self.image_transform = None
-        if transform:
+        if (transform and 'Compose' in torch.typename(transform)):
             self.image_transform = transform
         else:
             self.image_transform = transforms.Compose([
@@ -96,13 +112,18 @@ class Text2Image(object):
             nz=nz,
             ngf=ngf
         )
-        self.generator.apply(self.init_weights)
 
         self.discriminator = Discriminator(
             ne=ne,
             nt=nt,
             ndf=ndf
         )
+
+        if (self.device.type == 'cuda'):
+            self.generator = nn.DataParallel(self.generator)
+            self.discriminator = nn.DataParallel(self.discriminator)
+
+        self.generator.apply(self.init_weights)
         self.discriminator.apply(self.init_weights)
 
     def save_images(self, images, epoch=-1):
@@ -223,7 +244,7 @@ class Text2Image(object):
             self.nc,
             self.img_size,
             self.img_size
-        )
+        ).to(self.device)
         for i, example in enumerate(dataloader):
             end = min((i + 1) * batch_size, self.num_test)
             if end == self.num_test:
@@ -356,8 +377,8 @@ class Text2Image(object):
         # Criterion
         criterion = nn.BCELoss()
 
-        real = torch.FloatTensor(batch_size).fill_(1)
-        fake = torch.FloatTensor(batch_size).fill_(0)
+        real = torch.FloatTensor(batch_size).fill_(1).to(self.device)
+        fake = torch.FloatTensor(batch_size).fill_(0).to(self.device)
 
         training_start = datetime.now()
         print(
@@ -370,10 +391,10 @@ class Text2Image(object):
             self.discriminator.train()
 
             for i, example in enumerate(train_dataloader):
-                x = example['images']
-                h = example['right_embds']
-                h_hat = example['wrong_embds']
-                z = torch.randn(batch_size, self.nz, 1, 1)
+                x = example['images'].to(self.device)
+                h = example['right_embds'].to(self.device)
+                h_hat = example['wrong_embds'].to(self.device)
+                z = torch.randn(batch_size, self.nz, 1, 1).to(self.device)
 
                 # Update Discriminator
                 optimizer_D.zero_grad()
@@ -392,7 +413,7 @@ class Text2Image(object):
                 D_loss += D_wrong_text_loss.item()
 
                 # Fake Image - Right Text
-                x_hat = self.generator(z, h)
+                x_hat = self.generator(z, h).to(self.device)
                 D_fake_image = self.discriminator(x_hat.detach(), h).view(-1)
                 D_fake_image_loss = criterion(D_fake_image, fake) * 0.5
                 D_fake_image_loss.backward()
@@ -413,7 +434,7 @@ class Text2Image(object):
 
                 # Embeddings loss
                 h_emb = int_beta * h + (1 - int_beta) * h_hat
-                x_hat_emb = self.generator(z, h_emb)
+                x_hat_emb = self.generator(z, h_emb).to(self.device)
                 D_emb = self.discriminator(x_hat_emb, h_emb).view(-1)
                 G_emb_loss = criterion(D_emb, fake)
                 G_emb_loss.backward()
