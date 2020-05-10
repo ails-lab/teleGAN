@@ -174,7 +174,7 @@ class Text2Image(object):
             # Inverse the normalization and transpose the shape
             # to [HEIGHT, WIDTH, CHANNELS]
             img = inverse_normalize(img).permute(1, 2, 0)
-            img = (img.numpy() * 255).astype(np.uint8)
+            img = (img.cpu().numpy() * 255).astype(np.uint8)
 
             im = Image.fromarray(img)
             im.save(os.path.join(loc, f'image-{i}.png'))
