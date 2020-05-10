@@ -239,31 +239,45 @@ class Text2Image(object):
             - batch_size (int, optional): The batch size used while
                 initializing the dataloader.
         """
-        real_images = torch.FloatTensor(
-            self.num_test,
-            self.nc,
-            self.img_size,
-            self.img_size
-        ).to(self.device)
-        for i, example in enumerate(dataloader):
-            end = min((i + 1) * batch_size, self.num_test)
-            if end == self.num_test:
-                real_images[i * batch_size:end] = \
-                    example['images'][:self.num_test % batch_size]
-                self.test_h[i * batch_size:end] = \
-                    example['right_embds'][:self.num_test % batch_size]
-                break
-            else:
-                real_images[i * batch_size:end] = example['images']
-                self.test_h[i * batch_size:end] = example['right_embds']
-
         if not os.path.exists(self.images_dir):
             os.makedirs(self.images_dir)
 
         if not os.path.exists(self.checkpoints_dir):
             os.makedirs(self.checkpoints_dir)
 
-        self.save_images(real_images, 0)
+        with open(f"{self.images_dir}/captions.txt", 'w') as f:
+            real_images = torch.FloatTensor(
+                self.num_test,
+                self.nc,
+                self.img_size,
+                self.img_size
+            ).to(self.device)
+            n_line = 0
+            for i, example in enumerate(dataloader):
+                end = min((i + 1) * batch_size, self.num_test)
+                if end == self.num_test:
+                    real_images[i * batch_size:end] = \
+                        example['images'][:self.num_test % batch_size]
+                    self.test_h[i * batch_size:end] = \
+                        example['right_embds'][:self.num_test % batch_size]
+
+                    lines = example['right_texts'][:self.num_test % batch_size]
+                    for line in lines:
+                        f.write(f"[image-{n_line}]: {line}\n")
+                        n_line += 1
+
+                    break
+                else:
+                    real_images[i * batch_size:end] = example['images']
+                    self.test_h[i * batch_size:end] = example['right_embds']
+
+                    lines = example['right_texts']
+                    for line in lines:
+                        f.write(f"[image-{n_line}]: {line}\n")
+                        n_line += 1
+
+            f.close()
+            self.save_images(real_images, 0)
 
     def init_weights(self, m):
         """Initialize the weights.
