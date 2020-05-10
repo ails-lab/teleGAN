@@ -120,8 +120,8 @@ class Text2Image(object):
         )
 
         if (self.device.type == 'cuda'):
-            self.generator = nn.DataParallel(self.generator)
-            self.discriminator = nn.DataParallel(self.discriminator)
+            self.generator = nn.DataParallel(self.generator).to(self.device)
+            self.discriminator = nn.DataParallel(self.discriminator).to(self.device)
 
         self.generator.apply(self.init_weights)
         self.discriminator.apply(self.init_weights)
