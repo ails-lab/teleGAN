@@ -10,6 +10,8 @@
   "birds": {
     "images_path": "<path to>/cub/images",
     "embeddings_path": "<path to>/cub_icml",
+    "bboxes_file": "<path to>/cub/bounding_boxes.txt",
+    "images_file": "<path to>/cub/images.txt",
     "descriptions_path": "<path to>/text_c10",
     "train_file": "<path to>/cub_icml/trainclasses.txt",
     "val_file": "<path to>/cub_icml/valclasses.txt",

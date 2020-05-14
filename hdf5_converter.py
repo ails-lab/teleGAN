@@ -31,7 +31,34 @@ def get_lines(file):
     return lines
 
 
-def convert(dataset, configs):
+def load_bounding_boxes(bounding_boxes_file, images_file):
+    """Create a dictionary of bounding boxes points.
+
+    This function is called for the 'Birds' dataset and
+    creates a dictionary with the following structure:
+        <image_name> : <bounding box>
+    where bounding box is a list that contains the 4 points of the image
+    that correspond to the bounding box of the bird image. The birds' images
+    need to be cropped at that box in order to have greater-than-0.75
+    object-image size ratios. (Used in the StackGAN implementation)
+    """
+    image_ids = {}
+    bboxes = {}
+    with open(images_file) as f:
+        for l in f:
+            name = l.split('/')[-1].split('.')[0]
+            image_id = l.split(' ')[0]
+            image_ids[image_id] = name
+    with open(bounding_boxes_file) as f:
+        for l in f:
+            image_id = l.split(' ')[0]
+            bbox = l.split(' ')[1:]
+            bbox = [float(x) for x in bbox]
+            bboxes[image_ids[image_id]] = bbox
+    return bboxes
+
+
+def convert(dataset, configs, n):
     """Create an HDF5 dataset.
 
     This function creates an .h5 file by collecting the corresponding
@@ -43,15 +70,25 @@ def convert(dataset, configs):
                 - name
                 - class
                 - image
-                - 5 embeddings
-                - 5 texts
+                - bounding_box ('Birds' dataset only)
+                - n embeddings
+                - n texts
 
     Inputs:
         - dataset: the name of the dataset
         - configs: the configuration data of the config.json file
+        - n: number of embeddings to keep (default: 10)
     Output:
         - Creates the <dataset>.h5 file in the same directory.
     """
+    if dataset == 'birds':
+        bboxes = load_bounding_boxes(
+            configs["bboxes_file"],
+            configs["images_file"]
+        )
+    else:
+        bboxes = None
+
     hf = h5py.File(dataset + '.h5', 'w')
 
     train = hf.create_group('train')
@@ -130,18 +167,21 @@ def convert(dataset, configs):
 
             embds = tf[b'txt']
 
-            # The data contain 10 descriptions per image. As described
-            # in the original paper, we will use only 5 of them.
-            rand_inds = np.random.choice(range(len(embds)), 5)
+            if n < 10:
+                rand_inds = np.random.choice(range(len(embds)), n)
+                texts = texts[rand_inds]
+                embds = embds[rand_inds]
 
-            texts = texts[rand_inds]
-            embds = embds[rand_inds]
             dt = h5py.special_dtype(vlen=str)
 
             example = split.create_group(name)
             example.create_dataset('name', data=name)
             example.create_dataset('class', data=_class.name)
             example.create_dataset('image', data=np.void(img))
+
+            if bboxes:
+                example.create_dataset('bounding_box', data=bboxes[name])
+
             example.create_dataset('embeddings', data=embds)
             example.create_dataset('texts', data=texts, dtype=dt)
 
@@ -167,11 +207,20 @@ if __name__ == "__main__":
         help="Full path to the configuration file",
         required=True
     )
+    parser.add_argument(
+        '-n',
+        help="Number of embeddings [1,10]",
+        default=10
+    )
 
     # Parse the given arguments.
     args = parser.parse_args()
     dataset = args.dataset.lower()
     config = args.config
+    n = int(args.n)
+
+    if n < 1 or n > 10:
+        print("n must be in [1,10]")
 
     # Check user inputs
     try:
@@ -186,4 +235,4 @@ if __name__ == "__main__":
         sys.exit(1)
 
     # Create the <dataset>.h5 file
-    convert(dataset, configs)
+    convert(dataset, configs, n)
