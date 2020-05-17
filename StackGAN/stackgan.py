@@ -38,6 +38,9 @@ class StackGAN(object):
             first convolutional layer. (Default: 96)
         - num_test (int, optional): Number of generated images for evaluation
             (Default: 40)
+        - device (string, optional): Device to use for training
+            ('cpu' or 'cuda'). (Default: If there is a CUDA device
+            available, it will be used for training. Otherwise CPU.)
     """
 
     def __init__(
@@ -173,7 +176,7 @@ class StackGAN(object):
         netD.apply(self.init_weights)
         return netG, netD
 
-    def set_test(self, dataloader, batch_size=64):
+    def set_test(self, dataloader, batch_size=128):
         """Initialize the test set for evaluation.
 
         This method takes as input a dataloader to generate samples that will
@@ -263,9 +266,10 @@ class StackGAN(object):
     ):
         """Train the Generative Adversarial Network.
 
-        This method implements the training of the Generative Adversarial
-        Network created for the Text to Image Synthesis. See here:
-                https://arxiv.org/abs/1605.05396
+        This method implements the training of the StackGAN Network created
+        for Text to Photo-realistic Image Synthesis with Stacked Generative
+        Adversarial Networks. See here:
+                https://arxiv.org/abs/1612.03242
         for further information about the training process.
 
         Args:
