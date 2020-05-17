@@ -8,10 +8,10 @@ import random
 import numpy as np
 from PIL import Image
 from datetime import datetime
-from matplotlib import pyplot as plt
 
 from dataset import Txt2ImgDataset
 from model import Generator, Discriminator
+from utils import save_images, save_checkpoints
 
 
 class Text2Image(object):
@@ -121,108 +121,26 @@ class Text2Image(object):
 
         if (self.device.type == 'cuda'):
             self.generator = nn.DataParallel(self.generator).to(self.device)
-            self.discriminator = nn.DataParallel(self.discriminator).to(self.device)
+            self.discriminator = \
+                nn.DataParallel(self.discriminator).to(self.device)
 
         self.generator.apply(self.init_weights)
         self.discriminator.apply(self.init_weights)
 
-    def save_images(self, images, epoch=-1):
-        """Save a single or a batch of images.
+    def init_weights(self, m):
+        """Initialize the weights.
 
-        This method takes as input a tensor containing the images to
-        be saved, inverses the normalization and saves the images in
-        the directory specified while initializing the model. The
-        directory will have to following format:
-
-        -- images
-            -- real-images
-            -- epoch-[#]
-            -- other_images (if this method is called outside of training)
-
-        Args:
-            - images (tensor): A tensor containing the images to be
-                saved. The tensor must have the following format:
-                        (number_of_images x C x H x W)
-            - epoch (int, optional): The current epoch. It is used for
-                naming purposes. If not given as input, the images will
-                be saved inside the 'other_images' directory.
+        This method is applied to each layer of the Generator's and
+        Discriminator's layers in order to initialize their weights
+        and biases.
         """
-        if epoch == -1:
-            loc = os.path.join(
-                self.images_dir,
-                'other-images'
-            )
-        elif epoch == 0:
-            loc = os.path.join(
-                self.images_dir,
-                'real-images'
-            )
-        else:
-            loc = os.path.join(
-                self.images_dir,
-                f'epoch-{epoch}'
-            )
-
-        if not os.path.exists(loc):
-            os.makedirs(loc)
-
-        for i, img in enumerate(images):
-            inverse_normalize = transforms.Normalize(
-                mean=[-1, -1, -1],
-                std=[2, 2, 2]
-            )
-            # Inverse the normalization and transpose the shape
-            # to [HEIGHT, WIDTH, CHANNELS]
-            img = inverse_normalize(img).permute(1, 2, 0)
-            img = (img.cpu().numpy() * 255).astype(np.uint8)
-
-            im = Image.fromarray(img)
-            im.save(os.path.join(loc, f'image-{i}.png'))
-
-    def save_checkpoints(self, epoch):
-        """Save Generator and Discriminator states along with a plot.
-
-        This method saves the Generator and Discriminator states and a plot
-        of their total losses (until the current batch) to the following files:
-            - generator.pkl
-            - discriminator.pkl
-            - losses.png
-        inside of the [path to checkpoints directory]/epoch-[#]/ directory.
-
-        Args:
-            - epoch (int): The current epoch. It is used for
-                naming purposes.
-        """
-        loc = os.path.join(
-                self.checkpoints_dir,
-                f'epoch-{epoch}'
-        )
-        if not os.path.exists(loc):
-            os.makedirs(loc)
-
-        torch.save(
-            self.generator.state_dict(),
-            os.path.join(loc, 'generator.pkl')
-        )
-        torch.save(
-            self.discriminator.state_dict(),
-            os.path.join(loc, 'discriminator.pkl')
-        )
-
-        plt.figure()
-        plt.grid()
-        x = np.arange(len(self.total_G_losses))
-        y_G = self.total_G_losses
-        y_D = self.total_D_losses
-        plt.plot(x, y_G, 'b', label='Generator losses')
-        plt.plot(x, y_D, 'r', label='Discriminator losses')
-        plt.legend(loc="upper right")
-        plt.title('Generator and Discriminator losses')
-        plt.xlabel('Number of training batches')
-        plt.ylabel('Loss')
-        plt.savefig(
-            os.path.join(loc, 'losses.png')
-        )
+        name = torch.typename(m)
+        if 'Conv' in name:
+            m.weight.data.normal_(0.0, 0.02)
+            m.bias.data.fill_(0)
+        elif 'BatchNorm' in name:
+            m.weight.data.normal_(1.0, 0.02)
+            m.bias.data.fill_(0)
 
     def set_test(self, dataloader, batch_size=64):
         """Initialize the test set for evaluation.
@@ -277,22 +195,7 @@ class Text2Image(object):
                         n_line += 1
 
             f.close()
-            self.save_images(real_images, 0)
-
-    def init_weights(self, m):
-        """Initialize the weights.
-
-        This method is applied to each layer of the Generator's and
-        Discriminator's layers in order to initliaze theirs weights
-        and biases.
-        """
-        name = torch.typename(m)
-        if 'Conv' in name:
-            m.weight.data.normal_(0.0, 0.02)
-            m.bias.data.fill_(0)
-        elif 'BatchNorm' in name:
-            m.weight.data.normal_(1.0, 0.02)
-            m.bias.data.fill_(0)
+            save_images(real_images, self.images_dir, 0)
 
     def evaluate(self, epoch):
         """Generate images for the num_test test samples selected.
@@ -311,7 +214,7 @@ class Text2Image(object):
         with torch.no_grad():
             images = self.generator(self.test_z, self.test_h)
 
-        self.save_images(images, epoch)
+        save_images(images, self.images_dir, epoch)
 
     def train(
         self,
@@ -470,7 +373,14 @@ class Text2Image(object):
                     print(f"Batch [{i + 1}/{len(train_dataloader)}]", end="\r")
 
             self.evaluate(epoch)
-            self.save_checkpoints(epoch)
+            save_checkpoints(
+                self.generator,
+                self.discriminator,
+                self.total_G_losses,
+                self.total_D_losses,
+                epoch,
+                self.checkpoints_dir
+            )
 
         training_end = datetime.now()
         print(
