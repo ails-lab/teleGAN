@@ -76,12 +76,12 @@ class StackGAN(object):
             if torch.cuda.is_available():
                 self.device = torch.device("cuda")
             else:
-                print("[ERROR] CUDA is not available.")
+                print("[ERROR] CUDA is not available")
                 sys.exit(1)
         elif device == "cpu":
             self.device = torch.device("cpu")
         else:
-            print("[ERROR] Wrong device input. ('cpu' or 'cuda')")
+            print("[ERROR] Wrong device input ('cpu' or 'cuda')")
             sys.exit(1)
 
         self.total_G_losses = []
@@ -427,12 +427,11 @@ class StackGAN(object):
                     )
                 else:
                     print(f"Batch [{i + 1}/{len(train_dataloader)}]", end="\r")
-                break
+
             self.evaluate(netG, epoch + 1)
             save_checkpoints(netG, netD, self.total_G_losses,
                              self.total_D_losses, epoch + 1,
                              self.checkpoints_dir)
-            break
 
         training_end = datetime.now()
         print(
