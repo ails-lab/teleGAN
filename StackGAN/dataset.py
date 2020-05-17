@@ -65,8 +65,8 @@ class TxtDataset(Dataset):
             x1 = np.maximum(0, center_x - R)
             x2 = np.minimum(width, center_x + R)
             img = img.crop([x1, y1, x2, y2])
-        load_size = int(self.imsize * 76 / 64)
-        img = img.resize((load_size, load_size), PIL.Image.BILINEAR)
+        load_size = int(self.img_size * 76 / 64)
+        img = img.resize((load_size, load_size), Image.BILINEAR)
         if self.transform is not None:
             img = self.transform(img)
         return img
