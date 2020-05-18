@@ -55,7 +55,7 @@ class StackGAN(object):
         nz=100,
         ngf=192,
         ndf=96,
-        num_test=40,
+        num_test=50,
         device=None
     ):
         """Initialize the StackGAN model."""
@@ -155,6 +155,7 @@ class StackGAN(object):
         Stage1_G = STAGE1_G(self.ngf, self.nt, self.text_dim, self.nz)
         netG = STAGE2_G(Stage1_G, self.ngf, self.nt, self.text_dim, self.nz)
         netG.apply(self.init_weights)
+        netG.STAGE1_G = nn.DataParallel(netG.STAGE1_G).to(self.device)
 
         try:
             state_dict = \
@@ -168,8 +169,9 @@ class StackGAN(object):
                   " the state dictionary")
             print(f"[PICKLE] {e}")
             exit(1)
-        except BaseException:
+        except BaseException as e:
             print("[ERROR] Stage I state dictionary file is corrupted")
+            print(e)
             exit(1)
 
         netD = STAGE2_D(self.ndf, self.nt)
@@ -280,14 +282,15 @@ class StackGAN(object):
             - num_epochs (int, optional): Number of training epochs.
                 (Default: 600)
             - batch_size (int, optional): Number of samples per batch.
-                (Default: 64)
+                (Default: 128)
             - lr_G (float, optional): Learning rate for the generator's
                 Adam optimizers. (Default: 0.0002)
             - lr_G (float, optional): Learning rate for the discriminator's
                 Adam optimizers. (Default: 0.0002)
             - lr_decay (int, optional): Learning decay epoch step.
+                (Default: 20)
             - kl_coeff (float, optional): Training coefficient for the
-                Kullback-Leibler divergence.
+                Kullback-Leibler divergence. (Default: 2.0)
             - adam_momentum (float, optinal): Momentum value for the
                 Adam optimizers' betas. (Default: 0.5)
             - num_workers (int, optional): Number of subprocesses to use
@@ -396,6 +399,7 @@ class StackGAN(object):
                 # Generate fake images
                 _, fake_imgs, mu, logvar = \
                     netG(txt_embeddings, noise)
+                fake_imgs = fake_imgs.to(self.device)
 
                 # Update Discriminator
                 netD.zero_grad()

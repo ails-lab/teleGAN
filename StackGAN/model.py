@@ -82,7 +82,7 @@ class CA_NET(nn.Module):
     def reparametrize(self, mu, logvar):
         """Reparametrize the encoded text embeddings."""
         std = logvar.mul(0.5).exp_()
-        eps = torch.FloatTensor(std.size()).normal_()
+        eps = torch.FloatTensor(std.size()).normal_().to(std.device)
         return eps.mul(std).add_(mu)
 
     def forward(self, text_embedding):
