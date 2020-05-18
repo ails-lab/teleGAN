@@ -384,10 +384,10 @@ class StackGAN(object):
 
             if epoch % lr_decay == 0 and epoch > 0:
                 generator_lr *= 0.5
-                for param_group in optimizerG.param_groups:
+                for param_group in optimizer_G.param_groups:
                     param_group['lr'] = generator_lr
                 discriminator_lr *= 0.5
-                for param_group in optimizerD.param_groups:
+                for param_group in optimizer_D.param_groups:
                     param_group['lr'] = discriminator_lr
 
             for i, example in enumerate(train_dataloader):
