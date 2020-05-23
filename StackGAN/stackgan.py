@@ -37,7 +37,7 @@ class StackGAN(object):
         - ndf (int, optional): Number of discriminator filters in the
             first convolutional layer. (Default: 96)
         - num_test (int, optional): Number of generated images for evaluation
-            (Default: 40)
+            (Default: 50)
         - device (string, optional): Device to use for training
             ('cpu' or 'cuda'). (Default: If there is a CUDA device
             available, it will be used for training. Otherwise CPU.)
