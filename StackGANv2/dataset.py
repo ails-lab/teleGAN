@@ -3,6 +3,7 @@ import h5py
 import io
 import numpy as np
 from torch.utils.data import Dataset
+import torchvision.transforms as transforms
 from PIL import Image
 
 
@@ -12,12 +13,13 @@ class TxtDataset(Dataset):
     Args:
         - data (string): Path to the h5 file with the data.
         - split (string): 'train', 'val' or 'test' split.
-        - img_size (int, optional): Size for the images in the dataset.
+        - base_size (int, optional): Base size for the images in the dataset.
             (Default: 64)
         - transform (callable, optional): Optional transform to be applied
             on the image of a sample.
         - target_transform (callable, optional): Optional transform to be
             applied on the embeddings of a sample.
+        - branch_num (int, optional): Number of branches in the model.
     """
 
     def __init__(self, data, split='train', base_size=64,
@@ -32,10 +34,11 @@ class TxtDataset(Dataset):
         self.split = split
         self.transform = transform
         self.target_transform = target_transform
+        self.branch_num = branch_num
 
-        self.img_size = []
+        self.img_sizes = []
         for i in range(branch_num):
-            self.img_size.append(base_size)
+            self.img_sizes.append(base_size)
             base_size = base_size * 2
 
         self.hf = None
@@ -47,8 +50,8 @@ class TxtDataset(Dataset):
         """Return the length of the dataset split."""
         return self.ds_len
 
-    def get_img(self, key):
-        """Return the image corresponding to the key as a PIL Image."""
+    def get_imgs(self, key):
+        """Return the images corresponding to the key as a PIL Images."""
         img = self.hf[key]['image'][()]
         img = Image.open(io.BytesIO(img)).convert('RGB')
 
@@ -69,11 +72,23 @@ class TxtDataset(Dataset):
             x1 = np.maximum(0, center_x - R)
             x2 = np.minimum(width, center_x + R)
             img = img.crop([x1, y1, x2, y2])
-        load_size = int(self.img_size * 76 / 64)
-        img = img.resize((load_size, load_size), Image.BILINEAR)
+
         if self.transform is not None:
             img = self.transform(img)
-        return img
+
+        normalize = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+
+        br_images = []
+        for i in range(self.branch_num):
+            if self.img_sizes[i] == img.size:
+                br_images.append(normalize(img))
+            else:
+                scaled_image = transforms.Scale(self.img_sizes[i])(img)
+                br_images.append(normalize(scaled_image))
+
+        return br_images
 
     def __getitem__(self, index):
         """Return a sample of the dataset."""
@@ -86,8 +101,8 @@ class TxtDataset(Dataset):
         while wrong_key == key:
             wrong_key = np.random.choice(self.keys)
 
-        img = self.get_img(key)
-        wrong_img = self.get_img(wrong_key)
+        img = self.get_imgs(key)
+        wrong_img = self.get_imgs(wrong_key)
 
         embd_index = np.random.choice(len(self.hf[key]['embeddings']))
         embedding = self.hf[key]['embeddings'][()][embd_index]
@@ -99,7 +114,7 @@ class TxtDataset(Dataset):
         example = {
             'keys': key,
             'images': img,
-            'wrong_images': wrong_image,
+            'wrong_images': wrong_img,
             'embeddings': embedding,
             'texts': text
         }
