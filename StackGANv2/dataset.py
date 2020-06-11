@@ -1,10 +1,12 @@
-import torch
 import h5py
 import io
 import numpy as np
-from torch.utils.data import Dataset
-import torchvision.transforms as transforms
+
 from PIL import Image
+
+import torch
+import torchvision.transforms as transforms
+from torch.utils.data import Dataset
 
 
 class TxtDataset(Dataset):
@@ -85,7 +87,9 @@ class TxtDataset(Dataset):
             if self.img_sizes[i] == img.size:
                 br_images.append(normalize(img))
             else:
-                scaled_image = transforms.Scale(self.img_sizes[i])(img)
+                scaled_image = transforms.Resize(
+                    (self.img_sizes[i], self.img_sizes[i])
+                )(img)
                 br_images.append(normalize(scaled_image))
 
         return br_images
