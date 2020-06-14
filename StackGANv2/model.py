@@ -114,18 +114,14 @@ class INIT_STAGE_G(nn.Module):
     - ngf (int): dimension of the generators filters
     - nef (int): condition dimension
     - nz (int): noise dimension
-    - b_condition (boolean)
     """
 
-    def __init__(self, ngf, nef, nz, b_condition):
+    def __init__(self, ngf, nef, nz):
         """Initialize the Generator's init stage."""
         super(INIT_STAGE_G, self).__init__()
         self.gf_dim = ngf
-        self.b_condition = b_condition
-        if b_condition:
-            self.in_dim = nz + nef
-        else:
-            self.in_dim = nz
+        self.in_dim = nz + nef
+
         self.define_module()
 
     def define_module(self):
@@ -143,7 +139,7 @@ class INIT_STAGE_G(nn.Module):
         self.upsample4 = upBlock(ngf // 8, ngf // 16)
 
     def forward(self, z_code, c_code=None):
-        if self.b_condition and c_code is not None:
+        if c_code is not None:
             in_code = torch.cat((c_code, z_code), 1)
         else:
             in_code = z_code
@@ -169,19 +165,15 @@ class NEXT_STAGE_G(nn.Module):
         - ngf (int): dimension of the generator's filters
         - nef (int): condition dimension
         - nz (int): noise dimension
-        - b_condition (boolean)
         - num_residual (int, optional): number of residual blocks
     """
 
-    def __init__(self, ngf, nef, nz, b_condition, num_residual=2):
+    def __init__(self, ngf, nef, nz, num_residual=2):
         """Initialize the next stage of the Generator."""
         super(NEXT_STAGE_G, self).__init__()
         self.gf_dim = ngf
-        self.b_condition = b_condition
-        if b_condition:
-            self.ef_dim = nef
-        else:
-            self.ef_dim = nz
+        self.ef_dim = nef
+
         self.num_residual = num_residual
         self.define_module()
 
@@ -245,41 +237,38 @@ class G_NET(nn.Module):
         - nef (int): condition dimension
         - nz (int): noise dimension
         - text_dim (int): text dimension
-        - b_condition (boolean)
         - branch_num (int, optional): number of branches
     """
 
-    def __init__(self, ngf, nef, nz, text_dim, b_condition, branch_num=3):
+    def __init__(self, ngf, nef, nz, text_dim, branch_num=3):
         """Initialize the Generator."""
         super(G_NET, self).__init__()
         self.gf_dim = ngf
         self.ef_dim = nef
         self.nz = nz
         self.text_dim = text_dim
-        self.b_condition = b_condition
         self.branch_num = branch_num
         self.define_module()
 
     def define_module(self):
         """Define the generator module."""
-        if self.b_condition:
-            self.ca_net = CA_NET(self.text_dim, self.ef_dim)
+        self.ca_net = CA_NET(self.text_dim, self.ef_dim)
 
         if self.branch_num > 0:
             self.h_net1 = INIT_STAGE_G(self.gf_dim * 16, self.ef_dim,
-                                       self.nz, self.b_condition)
+                                       self.nz)
             self.img_net1 = GET_IMAGE_G(self.gf_dim)
         if self.branch_num > 1:
             self.h_net2 = NEXT_STAGE_G(self.gf_dim, self.ef_dim,
-                                       self.nz, self.b_condition)
+                                       self.nz)
             self.img_net2 = GET_IMAGE_G(self.gf_dim // 2)
         if self.branch_num > 2:
             self.h_net3 = NEXT_STAGE_G(self.gf_dim // 2, self.ef_dim,
-                                       self.nz, self.b_condition)
+                                       self.nz)
             self.img_net3 = GET_IMAGE_G(self.gf_dim // 4)
 
     def forward(self, z_code, text_embedding=None):
-        if self.b_condition and text_embedding is not None:
+        if text_embedding is not None:
             c_code, mu, logvar = self.ca_net(text_embedding)
         else:
             c_code, mu, logvar = z_code, None, None
@@ -349,15 +338,13 @@ class D_NET64(nn.Module):
     Args:
         - ndf (int): dimension of the discriminators filters
         - nef (int): condition dimension
-        - b_condition (boolean)
     """
 
-    def __init__(self, ndf, nef, b_condition):
+    def __init__(self, ndf, nef):
         """Initialize the 64x64 Discriminator."""
         super(D_NET64, self).__init__()
         self.df_dim = ndf
         self.ef_dim = nef
-        self.b_condition = b_condition
         self.define_module()
 
     def define_module(self):
@@ -370,16 +357,15 @@ class D_NET64(nn.Module):
             nn.Conv2d(ndf * 8, 1, kernel_size=4, stride=4),
             nn.Sigmoid())
 
-        if self.b_condition:
-            self.jointConv = Block3x3_leakRelu(ndf * 8 + efg, ndf * 8)
-            self.uncond_logits = nn.Sequential(
-                nn.Conv2d(ndf * 8, 1, kernel_size=4, stride=4),
-                nn.Sigmoid())
+        self.jointConv = Block3x3_leakRelu(ndf * 8 + efg, ndf * 8)
+        self.uncond_logits = nn.Sequential(
+            nn.Conv2d(ndf * 8, 1, kernel_size=4, stride=4),
+            nn.Sigmoid())
 
     def forward(self, x_var, c_code=None):
         x_code = self.img_code_s16(x_var)
 
-        if self.b_condition and c_code is not None:
+        if c_code is not None:
             c_code = c_code.view(-1, self.ef_dim, 1, 1)
             c_code = c_code.repeat(1, 1, 4, 4)
             # state size (ngf+egf) x 4 x 4
@@ -390,11 +376,8 @@ class D_NET64(nn.Module):
             h_c_code = x_code
 
         output = self.logits(h_c_code)
-        if self.b_condition:
-            out_uncond = self.uncond_logits(x_code)
-            return [output.view(-1), out_uncond.view(-1)]
-        else:
-            return [output.view(-1)]
+        out_uncond = self.uncond_logits(x_code)
+        return [output.view(-1), out_uncond.view(-1)]
 
 
 class D_NET128(nn.Module):
@@ -403,15 +386,13 @@ class D_NET128(nn.Module):
     Args:
         - ndf (int): dimension of the discriminators filters
         - nef (int): condition dimension
-        - b_condition (boolean)
     """
 
-    def __init__(self, ndf, nef, b_condition):
+    def __init__(self, ndf, nef):
         """Initialize the 128x128 Discriminator."""
         super(D_NET128, self).__init__()
         self.df_dim = ndf
         self.ef_dim = nef
-        self.b_condition = b_condition
         self.define_module()
 
     def define_module(self):
@@ -426,18 +407,17 @@ class D_NET128(nn.Module):
             nn.Conv2d(ndf * 8, 1, kernel_size=4, stride=4),
             nn.Sigmoid())
 
-        if self.b_condition:
-            self.jointConv = Block3x3_leakRelu(ndf * 8 + efg, ndf * 8)
-            self.uncond_logits = nn.Sequential(
-                nn.Conv2d(ndf * 8, 1, kernel_size=4, stride=4),
-                nn.Sigmoid())
+        self.jointConv = Block3x3_leakRelu(ndf * 8 + efg, ndf * 8)
+        self.uncond_logits = nn.Sequential(
+            nn.Conv2d(ndf * 8, 1, kernel_size=4, stride=4),
+            nn.Sigmoid())
 
     def forward(self, x_var, c_code=None):
         x_code = self.img_code_s16(x_var)
         x_code = self.img_code_s32(x_code)
         x_code = self.img_code_s32_1(x_code)
 
-        if self.b_condition and c_code is not None:
+        if c_code is not None:
             c_code = c_code.view(-1, self.ef_dim, 1, 1)
             c_code = c_code.repeat(1, 1, 4, 4)
             # state size (ngf+egf) x 4 x 4
@@ -448,11 +428,9 @@ class D_NET128(nn.Module):
             h_c_code = x_code
 
         output = self.logits(h_c_code)
-        if self.b_condition:
-            out_uncond = self.uncond_logits(x_code)
-            return [output.view(-1), out_uncond.view(-1)]
-        else:
-            return [output.view(-1)]
+
+        out_uncond = self.uncond_logits(x_code)
+        return [output.view(-1), out_uncond.view(-1)]
 
 
 class D_NET256(nn.Module):
@@ -461,15 +439,13 @@ class D_NET256(nn.Module):
     Args:
         - ndf (int): dimension of the discriminators filters
         - nef (int): condition dimension
-        - b_condition (boolean)
     """
 
-    def __init__(self, ndf, nef, b_condition):
+    def __init__(self, ndf, nef):
         """Initialize the 256x256 Discriminator."""
         super(D_NET256, self).__init__()
         self.df_dim = ndf
         self.ef_dim = nef
-        self.b_condition = b_condition
         self.define_module()
 
     def define_module(self):
@@ -486,11 +462,10 @@ class D_NET256(nn.Module):
             nn.Conv2d(ndf * 8, 1, kernel_size=4, stride=4),
             nn.Sigmoid())
 
-        if self.b_condition:
-            self.jointConv = Block3x3_leakRelu(ndf * 8 + efg, ndf * 8)
-            self.uncond_logits = nn.Sequential(
-                nn.Conv2d(ndf * 8, 1, kernel_size=4, stride=4),
-                nn.Sigmoid())
+        self.jointConv = Block3x3_leakRelu(ndf * 8 + efg, ndf * 8)
+        self.uncond_logits = nn.Sequential(
+            nn.Conv2d(ndf * 8, 1, kernel_size=4, stride=4),
+            nn.Sigmoid())
 
     def forward(self, x_var, c_code=None):
         x_code = self.img_code_s16(x_var)
@@ -499,7 +474,7 @@ class D_NET256(nn.Module):
         x_code = self.img_code_s64_1(x_code)
         x_code = self.img_code_s64_2(x_code)
 
-        if self.b_condition and c_code is not None:
+        if c_code is not None:
             c_code = c_code.view(-1, self.ef_dim, 1, 1)
             c_code = c_code.repeat(1, 1, 4, 4)
             # state size (ngf+egf) x 4 x 4
@@ -510,8 +485,5 @@ class D_NET256(nn.Module):
             h_c_code = x_code
 
         output = self.logits(h_c_code)
-        if self.b_condition:
-            out_uncond = self.uncond_logits(x_code)
-            return [output.view(-1), out_uncond.view(-1)]
-        else:
-            return [output.view(-1)]
+        out_uncond = self.uncond_logits(x_code)
+        return [output.view(-1), out_uncond.view(-1)]
