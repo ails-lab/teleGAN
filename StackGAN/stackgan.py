@@ -293,6 +293,8 @@ class StackGAN(object):
                 Kullback-Leibler divergence. (Default: 2.0)
             - adam_momentum (float, optinal): Momentum value for the
                 Adam optimizers' betas. (Default: 0.5)
+            - checkpoint_interval (int, optional): Checkpoints will be saved
+                every <checkpoint_interval> epochs. (Default: 10)
             - num_workers (int, optional): Number of subprocesses to use
                 for data loading. (Default: 0, whichs means that the data
                 will be loaded in the main process.)
@@ -433,9 +435,10 @@ class StackGAN(object):
                     print(f"Batch [{i + 1}/{len(train_dataloader)}]", end="\r")
 
             self.evaluate(netG, epoch + 1)
-            save_checkpoints(netG, netD, self.total_G_losses,
-                             self.total_D_losses, epoch + 1,
-                             self.checkpoints_dir)
+            if (epoch % checkpoint_interval == 0):
+                save_checkpoints(netG, netD, self.total_G_losses,
+                                 self.total_D_losses, epoch + 1,
+                                 self.checkpoints_dir)
 
         training_end = datetime.now()
         print(
