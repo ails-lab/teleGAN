@@ -440,7 +440,7 @@ class StackGANv2(object):
 
         # Optimizers
         self.optimizerG, self.optimizersD = \
-            self.define_optimizers(self.netG, self.netsD, lr_G, lr_D,
+            self.define_optimizers(lr_G, lr_D,
                                    adam_momentum)
 
         # Criterion
