@@ -368,7 +368,8 @@ class StackGANv2(object):
         lr_D=0.0002,
         adam_momentum=0.5,
         uncond_loss=0.1,
-        num_workers=0,
+        checkpoint_interval=10,
+        num_workers=0
     ):
         """Train the Generative Adversarial Network.
 

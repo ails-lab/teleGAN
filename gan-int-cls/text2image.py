@@ -223,6 +223,7 @@ class Text2Image(object):
         lr=0.0002,
         int_beta=0.5,
         adam_momentum=0.5,
+        checkpoint_interval=10,
         num_workers=0
     ):
         """Train the Generative Adversarial Network.

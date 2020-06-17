@@ -264,6 +264,7 @@ class StackGAN(object):
         lr_decay=20,
         kl_coeff=2.0,
         adam_momentum=0.5,
+        checkpoint_interval=10,
         num_workers=0,
     ):
         """Train the Generative Adversarial Network.
