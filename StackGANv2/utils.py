@@ -68,7 +68,7 @@ def save_images(images, path, epoch=-1):
         im.save(os.path.join(loc, f'image-{i}.png'))
 
 
-def save_checkpoints(netG, netD, G_losses, D_losses, epoch, path):
+def save_checkpoints(netG, netsD, G_losses, D_losses, epoch, path):
     """Save Generator and Discriminator states along with a plot.
 
     This method saves the Generator and Discriminator states and a plot
@@ -80,7 +80,7 @@ def save_checkpoints(netG, netD, G_losses, D_losses, epoch, path):
 
     Args:
         - netG (nn.Module): The generator object to save.
-        - netD (nn.Module): The discriminator object to save.
+        - netsD (nn.Module): A list of the discriminator objects to save.
         - G_losses (list): List of current generator's losses.
         - D_losses (list): List of current discriminator's losses.
         - epoch (int): The current epoch. It is used for
@@ -98,10 +98,11 @@ def save_checkpoints(netG, netD, G_losses, D_losses, epoch, path):
         netG.state_dict(),
         os.path.join(loc, 'generator.pkl')
     )
-    torch.save(
-        netD.state_dict(),
-        os.path.join(loc, 'discriminator.pkl')
-    )
+    for i, netD in enumerate(netsD):
+        torch.save(
+            netD.state_dict(),
+            os.path.join(loc, f'discriminator-{i}.pkl')
+        )
 
     plt.figure()
     plt.grid()
