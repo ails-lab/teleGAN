@@ -131,3 +131,26 @@ def KL_loss(mu, logvar):
     KLD_element = mu.pow(2).add_(logvar.exp()).mul_(-1).add_(1).add_(logvar)
     KLD = torch.mean(KLD_element).mul_(-0.5)
     return KLD
+
+
+def compute_mean_covariance(img):
+    """Compute mean covariance for the color consistency loss."""
+    batch_size = img.size(0)
+    channel_num = img.size(1)
+    height = img.size(2)
+    width = img.size(3)
+    num_pixels = height * width
+
+    # batch_size * channel_num * 1 * 1
+    mu = img.mean(2, keepdim=True).mean(3, keepdim=True)
+
+    # batch_size * channel_num * num_pixels
+    img_hat = img - mu.expand_as(img)
+    img_hat = img_hat.view(batch_size, channel_num, num_pixels)
+    # batch_size * num_pixels * channel_num
+    img_hat_transpose = img_hat.transpose(1, 2)
+    # batch_size * channel_num * channel_num
+    covariance = torch.bmm(img_hat, img_hat_transpose)
+    covariance = covariance / num_pixels
+
+    return mu, covariance

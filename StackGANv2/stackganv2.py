@@ -13,7 +13,8 @@ from datetime import datetime
 
 from dataset import TxtDataset
 from model import G_NET, D_NET64, D_NET128, D_NET256
-from utils import save_images, save_checkpoints, copy_G_params, KL_loss
+from utils import save_images, save_checkpoints, copy_G_params
+from utils import KL_loss, compute_mean_covariance
 
 
 class StackGANv2(object):
@@ -255,8 +256,7 @@ class StackGANv2(object):
 
         Args:
             - netG (STAGE1_G or STAGE2_G): The generator object to evaluate.
-            - epoch (int): The current epoch. Used for
-                naming purposes.
+            - epoch (int): The current epoch. Used for naming purposes.
         """
         self.netG.eval()
         with torch.no_grad():
@@ -325,7 +325,7 @@ class StackGANv2(object):
         return errD
 
     def train_Gnet(self, real_imgs, fake_imgs,
-                   mu, logvar, real, uncond_loss):
+                   mu, logvar, real, uncond_loss, color_coef=0.0):
         """Train the Generator.
 
         This method implements the training of the Generator.
@@ -339,6 +339,8 @@ class StackGANv2(object):
             - logvar (float): logvar as calculated by the generator.
             - real (tensor): Tensor containing '1' labels.
             - uncond_loss (float): Coefficient for the unconditional loss.
+            - color_coef (float, optional): Coefficient for the computation
+                of the color consistency losses. (Default: 0.0)
         """
         self.netG.zero_grad()
         errG_total = 0
@@ -354,6 +356,25 @@ class StackGANv2(object):
                 errG = errG + errG_patch
             errG_total = errG_total + errG
 
+        # Compute color consistency losses
+        if color_coef > 0:
+            if len(self.netsD) > 1:
+                mu1, covariance1 = compute_mean_covariance(fake_imgs[-1])
+                mu2, covariance2 = \
+                    compute_mean_covariance(fake_imgs[-2].detach())
+                like_mu2 = color_coef * nn.MSELoss()(mu1, mu2)
+                like_cov2 = color_coef * 5 * \
+                    nn.MSELoss()(covariance1, covariance2)
+                errG_total = errG_total + like_mu2 + like_cov2
+            if len(self.netsD) > 2:
+                mu1, covariance1 = compute_mean_covariance(fake_imgs[-2])
+                mu2, covariance2 = \
+                    compute_mean_covariance(fake_imgs[-3].detach())
+                like_mu1 = color_coef * nn.MSELoss()(mu1, mu2)
+                like_cov1 = color_coef * 5 * \
+                    nn.MSELoss()(covariance1, covariance2)
+                errG_total = errG_total + like_mu1 + like_cov1
+
         kl_loss = KL_loss(mu, logvar) * uncond_loss
         errG_total = errG_total + kl_loss
         errG_total.backward()
@@ -368,6 +389,7 @@ class StackGANv2(object):
         lr_D=0.0002,
         adam_momentum=0.5,
         uncond_loss=0.1,
+        color_coef=0.0,
         checkpoint_interval=10,
         num_workers=0
     ):
@@ -392,6 +414,8 @@ class StackGANv2(object):
                 Adam optimizers' betas. (Default: 0.5)
             - uncond_loss (float, optional): Coefficient for the unconditional
                 loss. (Default: 1.0)
+            - color_coef (float, optional): Coefficient for the color
+                consistency loss. (Default: 0.0 (not used))
             - checkpoint_interval (int, optional): Checkpoints will be saved
                 every <checkpoint_interval> epochs. (Default: 10)
             - num_workers (int, optional): Number of subprocesses to use
@@ -455,6 +479,7 @@ class StackGANv2(object):
             f"\n{training_start.strftime('%d %B [%H:%M:%S] ')}"
             "Starting training..."
         )
+        last_epoch = num_epochs - 1
         for epoch in range(num_epochs):
             print(f"\nEpoch [{epoch + 1}/{num_epochs}]")
             self.netG.train()
@@ -485,7 +510,8 @@ class StackGANv2(object):
                 # Update Generator
                 kl_loss, errG_total = \
                     self.train_Gnet(real_imgs, fake_imgs,
-                                    mu, logvar, real, uncond_loss)
+                                    mu, logvar, real, uncond_loss,
+                                    color_coef=color_coef)
                 for p, avg_p in zip(self.netG.parameters(), avg_param_G):
                     avg_p.mul_(0.999).add_(0.001, p.data)
 
@@ -503,8 +529,8 @@ class StackGANv2(object):
                     print(f"Batch [{i + 1}/{len(train_dataloader)}]", end="\r")
 
             self.evaluate(epoch + 1)
-            if (epoch % checkpoint_interval == 0):
-                save_checkpoints(self.netG, self.netsD[-1],
+            if (epoch % checkpoint_interval == 0 or epoch == last_epoch):
+                save_checkpoints(self.netG, self.netsD,
                                  self.total_G_losses, self.total_D_losses,
                                  epoch + 1, self.checkpoints_dir)
 
