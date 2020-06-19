@@ -33,9 +33,9 @@ class StackGAN(object):
         - nt (int, optional): Projected embeddings dimensions. (Default: 128)
         - nz (int, optional): Dimension of the noise input. (Default: 100)
         - ngf (int, optional): Number of generator filters in the
-            first convolutional layer. (Default: 192)
+            first convolutional layer. (Default: 128)
         - ndf (int, optional): Number of discriminator filters in the
-            first convolutional layer. (Default: 96)
+            first convolutional layer. (Default: 64)
         - num_test (int, optional): Number of generated images for evaluation
             (Default: 50)
         - device (string, optional): Device to use for training
@@ -53,8 +53,8 @@ class StackGAN(object):
         text_dim=1024,
         nt=128,
         nz=100,
-        ngf=192,
-        ndf=96,
+        ngf=128,
+        ndf=64,
         num_test=50,
         device=None
     ):
@@ -261,7 +261,7 @@ class StackGAN(object):
         batch_size=128,
         lr_G=0.0002,
         lr_D=0.0002,
-        lr_decay=20,
+        lr_decay=50,
         kl_coeff=2.0,
         adam_momentum=0.5,
         checkpoint_interval=10,
@@ -289,7 +289,7 @@ class StackGAN(object):
             - lr_G (float, optional): Learning rate for the discriminator's
                 Adam optimizers. (Default: 0.0002)
             - lr_decay (int, optional): Learning decay epoch step.
-                (Default: 20)
+                (Default: 50)
             - kl_coeff (float, optional): Training coefficient for the
                 Kullback-Leibler divergence. (Default: 2.0)
             - adam_momentum (float, optinal): Momentum value for the
@@ -380,6 +380,7 @@ class StackGAN(object):
             f"\n{training_start.strftime('%d %B [%H:%M:%S] ')}"
             "Starting training..."
         )
+        last_epoch = num_epochs - 1
         for epoch in range(num_epochs):
             print(f"\nEpoch [{epoch + 1}/{num_epochs}]")
             netG.train()
@@ -436,7 +437,7 @@ class StackGAN(object):
                     print(f"Batch [{i + 1}/{len(train_dataloader)}]", end="\r")
 
             self.evaluate(netG, epoch + 1)
-            if (epoch % checkpoint_interval == 0):
+            if (epoch % checkpoint_interval == 0 or epoch == last_epoch):
                 save_checkpoints(netG, netD, self.total_G_losses,
                                  self.total_D_losses, epoch + 1,
                                  self.checkpoints_dir)
