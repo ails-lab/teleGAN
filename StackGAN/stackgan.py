@@ -286,7 +286,7 @@ class StackGAN(object):
                 (Default: 128)
             - lr_G (float, optional): Learning rate for the generator's
                 Adam optimizers. (Default: 0.0002)
-            - lr_G (float, optional): Learning rate for the discriminator's
+            - lr_D (float, optional): Learning rate for the discriminator's
                 Adam optimizers. (Default: 0.0002)
             - lr_decay (int, optional): Learning decay epoch step.
                 (Default: 50)

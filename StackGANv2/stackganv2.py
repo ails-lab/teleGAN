@@ -408,7 +408,7 @@ class StackGANv2(object):
                 (Default: 24)
             - lr_G (float, optional): Learning rate for the generator's
                 Adam optimizers. (Default: 0.0002)
-            - lr_G (float, optional): Learning rate for the discriminator's
+            - lr_D (float, optional): Learning rate for the discriminator's
                 Adam optimizers. (Default: 0.0002)
             - adam_momentum (float, optional): Momentum value for the
                 Adam optimizers' betas. (Default: 0.5)
