@@ -71,10 +71,10 @@ def save_images(images, path, epoch=-1):
 def save_checkpoints(netG, netsD, G_losses, D_losses, epoch, path):
     """Save Generator and Discriminator states along with a plot.
 
-    This method saves the Generator and Discriminator states and a plot
+    This method saves the Generator and Discriminators states and a plot
     of their total losses (until the current batch) to the following files:
         - generator.pkl
-        - discriminator.pkl
+        - discriminator-[#].pkl
         - losses.png
     inside of the [path to checkpoints directory]/epoch-[#]/ directory.
 

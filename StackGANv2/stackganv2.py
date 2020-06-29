@@ -142,7 +142,7 @@ class StackGANv2(object):
             if m.bias is not None:
                 m.bias.data.fill_(0.0)
 
-    def load_networks(self):
+    def load_networks(self, checkpoint=None):
         """Load the generator and discriminator networks.
 
         This method initializes the Generator's and Discriminator's networks
@@ -150,7 +150,6 @@ class StackGANv2(object):
         """
         netG = G_NET(ngf=self.ngf, nef=self.nt, nz=self.nz,
                      text_dim=self.text_dim, branch_num=self.branch_num)
-        netG.apply(self.init_weights)
         netG = nn.DataParallel(netG).to(self.device)
 
         netsD = []
@@ -161,13 +160,46 @@ class StackGANv2(object):
         if self.branch_num > 2:
             netsD.append(D_NET256(ndf=self.ndf, nef=self.nt))
 
-        for i in range(len(netsD)):
-            netsD[i].apply(self.init_weights)
-            netsD[i] = nn.DataParallel(netsD[i]).to(self.device)
+        if checkpoint:
+            try:
+                gen_path = os.path.join(checkpoint, 'generator.pkl')
+                gen_dict = torch.load(gen_path, map_location=lambda storage,
+                                      loc: storage)
+                netG.load_state_dict(gen_dict)
+
+                for i in range(len(netsD)):
+                    dis_path = os.path.join(
+                        checkpoint,
+                        f'discriminator-{i}.pkl'
+                    )
+                    dis_dict = torch.load(
+                        dis_path,
+                        map_location=lambda storage,
+                        loc: storage
+                    )
+                    netsD[i] = nn.DataParallel(netsD[i]).to(self.device)
+                    netsD[i].load_state_dict(dis_dict)
+            except FileNotFoundError:
+                print("[ERROR] Wrong checkpoint path or files don\'t exist.")
+                exit(1)
+            except pickle.UnpicklingError as e:
+                print("[ERROR] Something went wrong while loading"
+                      " the state dictionary")
+                print(f"[PICKLE] {e}")
+                exit(1)
+            except BaseException as err:
+                print(f"[ERROR] {err}")
+                exit(1)
+        else:
+            for i in range(len(netsD)):
+                netsD[i].apply(self.init_weights)
+                netsD[i] = nn.DataParallel(netsD[i]).to(self.device)
+
+            netG.apply(self.init_weights)
 
         return netG, netsD
 
-    def set_test(self, dataloader, batch_size):
+    def set_test(self, dataloader, batch_size, checkpoint=None):
         """Initialize the test set for evaluation.
 
         This method takes as input a dataloader to generate samples that will
@@ -188,6 +220,23 @@ class StackGANv2(object):
         if not os.path.exists(self.checkpoints_dir):
             os.makedirs(self.checkpoints_dir)
 
+        if checkpoint:
+            test_h_path = os.path.join(checkpoint, 'test_embds.pt')
+            test_z_path = os.path.join(checkpoint, 'noise.pt')
+            try:
+                self.test_h = torch.load(
+                    test_h_path, map_location=lambda storage, loc: storage
+                ).to(self.device)
+                self.test_z = torch.load(
+                    test_z_path, map_location=lambda storage, loc: storage
+                ).to(self.device)
+            except FileNotFoundError:
+                print("[ERROR] Wrong checkpoint path or files don\'t exist.")
+                exit(1)
+            return
+
+        test_h_path = os.path.join(self.checkpoints_dir, 'test_embds.pt')
+        test_z_path = os.path.join(self.checkpoints_dir, 'noise.pt')
         with open(f"{self.images_dir}/captions.txt", 'w') as f:
             real_images = torch.FloatTensor(
                 self.num_test,
@@ -220,6 +269,10 @@ class StackGANv2(object):
                         n_line += 1
 
             f.close()
+            torch.save(self.test_h, test_h_path)
+            torch.save(self.test_z, test_z_path)
+            self.test_z.to(self.device)
+            self.test_h.to(self.device)
             save_images(real_images, self.images_dir, 0)
 
     def define_optimizers(self, G_lr, D_lr, adam_momentum=0.5):
@@ -391,6 +444,7 @@ class StackGANv2(object):
         uncond_loss=0.1,
         color_coef=0.0,
         checkpoint_interval=10,
+        checkpoint_path=None,
         num_workers=0
     ):
         """Train the Generative Adversarial Network.
@@ -418,12 +472,31 @@ class StackGANv2(object):
                 consistency loss. (Default: 0.0 (not used))
             - checkpoint_interval (int, optional): Checkpoints will be saved
                 every <checkpoint_interval> epochs. (Default: 10)
+            - checkpoint_path (String, optional): Set this argument to continue
+                training the models of the specified checkpoint. The path
+                must have to following format:
+                    <'/path/to/results/[datetime]/checkpoints/epoch-[#]'>
+                and inside there must be the following files:
+                    - generator.pkl
+                    - discriminator-[#].pkl
+                    - test_embds.pt
+                    - noise.pt
+                (Default: None)
             - num_workers (int, optional): Number of subprocesses to use
                 for data loading. (Default: 0, whichs means that the data
                 will be loaded in the main process.)
         """
-        self.netG, self.netsD = self.load_networks()
+        self.netG, self.netsD = self.load_networks(checkpoint_path)
         avg_param_G = copy_G_params(self.netG)
+
+        # Starting epoch
+        starting_epoch = 1
+        if checkpoint_path:
+            starting_epoch = \
+                int(''.join(
+                    c for c in checkpoint_path.split('-')[-1]
+                    if c.isdigit()
+                    )) + 1
 
         # Results directory
         date = datetime.now().strftime("%d-%b-%Y (%H.%M)")
@@ -461,7 +534,7 @@ class StackGANv2(object):
         )
 
         # Set test dataset
-        self.set_test(test_dataloader, batch_size)
+        self.set_test(test_dataloader, batch_size, checkpoint_path)
 
         # Optimizers
         self.optimizerG, self.optimizersD = \
@@ -479,9 +552,9 @@ class StackGANv2(object):
             f"\n{training_start.strftime('%d %B [%H:%M:%S] ')}"
             "Starting training..."
         )
-        last_epoch = num_epochs - 1
-        for epoch in range(num_epochs):
-            print(f"\nEpoch [{epoch + 1}/{num_epochs}]")
+        last_epoch = num_epochs
+        for epoch in range(starting_epoch, num_epochs + 1):
+            print(f"\nEpoch [{epoch}/{num_epochs}]")
             self.netG.train()
             for netD in self.netsD:
                 netD.train()
@@ -516,23 +589,23 @@ class StackGANv2(object):
                     avg_p.mul_(0.999).add_(0.001, p.data)
 
                 # Append losses
-                self.total_D_losses.append(errD_total.data)
-                self.total_G_losses.append(errG_total.data)
+                self.total_D_losses.append(errD_total.item())
+                self.total_G_losses.append(errG_total.item())
 
                 if (i % 20 == 0 or i == len(train_dataloader) - 1):
                     print(
                         f"Batch [{i + 1}/{len(train_dataloader)}]\tGenerator "
-                        f"Loss: {errG_total.data}\tDiscriminator "
-                        f"Loss: {errD_total.data}"
+                        f"Loss: {errG_total.item()}\tDiscriminator "
+                        f"Loss: {errD_total.item()}"
                     )
                 else:
                     print(f"Batch [{i + 1}/{len(train_dataloader)}]", end="\r")
 
-            self.evaluate(epoch + 1)
+            self.evaluate(epoch)
             if (epoch % checkpoint_interval == 0 or epoch == last_epoch):
                 save_checkpoints(self.netG, self.netsD,
                                  self.total_G_losses, self.total_D_losses,
-                                 epoch + 1, self.checkpoints_dir)
+                                 epoch, self.checkpoints_dir)
 
         training_end = datetime.now()
         print(

@@ -135,17 +135,41 @@ class StackGAN(object):
             if m.bias is not None:
                 m.bias.data.fill_(0.0)
 
-    def load_network_stageI(self):
+    def load_network_stageI(self, checkpoint=None):
         """Load the network for Stage I of StackGAN."""
         netG = STAGE1_G(self.ngf, self.nt, self.text_dim, self.nz)
-        netG.apply(self.init_weights)
+        netG = nn.DataParallel(netG).to(self.device)
 
         netD = STAGE1_D(self.ndf, self.nt)
-        netD.apply(self.init_weights)
+        netD = nn.DataParallel(netD).to(self.device)
+
+        if checkpoint:
+            try:
+                gen_path = os.path.join(checkpoint, 'generator.pkl')
+                gen_dict = torch.load(gen_path, map_location=lambda storage,
+                                      loc: storage)
+                netG.load_state_dict(gen_dict)
+
+                dis_path = os.path.join(checkpoint, 'discriminator.pkl')
+                dis_dict = torch.load(dis_path, map_location=lambda storage,
+                                      loc: storage)
+                netD.load_state_dict(dis_dict)
+            except FileNotFoundError:
+                print("[ERROR] Wrong checkpoint path or files don\'t exist.")
+            except pickle.UnpicklingError as e:
+                print("[ERROR] Something went wrong while loading"
+                      " the state dictionary")
+                print(f"[PICKLE] {e}")
+                exit(1)
+            except BaseException as err:
+                print(f"[ERROR] {err}")
+        else:
+            netG.apply(self.init_weights)
+            netD.apply(self.init_weights)
 
         return netG, netD
 
-    def load_network_stageII(self, path):
+    def load_network_stageII(self, path, checkpoint=None):
         """Load the network for Stage II of StackGAN.
 
         Args:
@@ -154,31 +178,57 @@ class StackGAN(object):
         """
         Stage1_G = STAGE1_G(self.ngf, self.nt, self.text_dim, self.nz)
         netG = STAGE2_G(Stage1_G, self.ngf, self.nt, self.text_dim, self.nz)
-        netG.apply(self.init_weights)
         netG.STAGE1_G = nn.DataParallel(netG.STAGE1_G).to(self.device)
 
-        try:
-            state_dict = \
-                torch.load(path, map_location=lambda storage, loc: storage)
-            netG.STAGE1_G.load_state_dict(state_dict)
-        except FileNotFoundError:
-            print("[ERROR] Wrong Stage I state dictionary path")
-            exit(1)
-        except pickle.UnpicklingError as e:
-            print("[ERROR] Something went wrong while loading"
-                  " the state dictionary")
-            print(f"[PICKLE] {e}")
-            exit(1)
-        except BaseException as e:
-            print("[ERROR] Stage I state dictionary file is corrupted")
-            print(e)
-            exit(1)
-
         netD = STAGE2_D(self.ndf, self.nt)
-        netD.apply(self.init_weights)
+        netD = nn.DataParallel(netD).to(self.device)
+
+        if checkpoint:
+            netG = nn.DataParallel(netG).to(self.device)
+            try:
+                gen_path = os.path.join(checkpoint, 'generator.pkl')
+                gen_dict = torch.load(gen_path, map_location=lambda storage,
+                                      loc: storage)
+                netG.load_state_dict(gen_dict)
+
+                dis_path = os.path.join(checkpoint, 'discriminator.pkl')
+                dis_dict = torch.load(dis_path, map_location=lambda storage,
+                                      loc: storage)
+                netD.load_state_dict(dis_dict)
+            except FileNotFoundError:
+                print("[ERROR] Wrong checkpoint path or files don\'t exist.")
+                exit(1)
+            except pickle.UnpicklingError as e:
+                print("[ERROR] Something went wrong while loading"
+                      " the state dictionary")
+                print(f"[PICKLE] {e}")
+                exit(1)
+            except BaseException as err:
+                print(f"[ERROR] {err}")
+                exit(1)
+        else:
+            netG.apply(self.init_weights)
+            netD.apply(self.init_weights)
+            try:
+                state_dict = \
+                    torch.load(path, map_location=lambda storage, loc: storage)
+                netG.STAGE1_G.load_state_dict(state_dict)
+            except FileNotFoundError:
+                print("[ERROR] Wrong Stage I state dictionary path")
+                exit(1)
+            except pickle.UnpicklingError as e:
+                print("[ERROR] Something went wrong while loading"
+                      " the state dictionary")
+                print(f"[PICKLE] {e}")
+                exit(1)
+            except BaseException as e:
+                print("[ERROR] Stage I state dictionary file is corrupted")
+                print(e)
+                exit(1)
+
         return netG, netD
 
-    def set_test(self, dataloader, batch_size=128):
+    def set_test(self, dataloader, batch_size=128, checkpoint=None):
         """Initialize the test set for evaluation.
 
         This method takes as input a dataloader to generate samples that will
@@ -199,6 +249,23 @@ class StackGAN(object):
         if not os.path.exists(self.checkpoints_dir):
             os.makedirs(self.checkpoints_dir)
 
+        if checkpoint:
+            test_h_path = os.path.join(checkpoint, 'test_embds.pt')
+            test_z_path = os.path.join(checkpoint, 'noise.pt')
+            try:
+                self.test_h = torch.load(
+                    test_h_path, map_location=lambda storage, loc: storage
+                ).to(self.device)
+                self.test_z = torch.load(
+                    test_z_path, map_location=lambda storage, loc: storage
+                ).to(self.device)
+            except FileNotFoundError:
+                print("[ERROR] Wrong checkpoint path or files don\'t exist.")
+                exit(1)
+            return
+
+        test_h_path = os.path.join(self.checkpoints_dir, 'test_embds.pt')
+        test_z_path = os.path.join(self.checkpoints_dir, 'noise.pt')
         with open(f"{self.images_dir}/captions.txt", 'w') as f:
             real_images = torch.FloatTensor(
                 self.num_test,
@@ -231,6 +298,10 @@ class StackGAN(object):
                         n_line += 1
 
             f.close()
+            torch.save(self.test_h, test_h_path)
+            torch.save(self.test_z, test_z_path)
+            self.test_z.to(self.device)
+            self.test_h.to(self.device)
             save_images(real_images, self.images_dir, 0)
 
     def evaluate(self, netG, epoch):
@@ -261,10 +332,11 @@ class StackGAN(object):
         batch_size=128,
         lr_G=0.0002,
         lr_D=0.0002,
-        lr_decay=50,
+        lr_decay=100,
         kl_coeff=2.0,
         adam_momentum=0.5,
         checkpoint_interval=10,
+        checkpoint_path=None,
         num_workers=0,
     ):
         """Train the Generative Adversarial Network.
@@ -289,13 +361,23 @@ class StackGAN(object):
             - lr_D (float, optional): Learning rate for the discriminator's
                 Adam optimizers. (Default: 0.0002)
             - lr_decay (int, optional): Learning decay epoch step.
-                (Default: 50)
+                (Default: 100)
             - kl_coeff (float, optional): Training coefficient for the
                 Kullback-Leibler divergence. (Default: 2.0)
             - adam_momentum (float, optinal): Momentum value for the
                 Adam optimizers' betas. (Default: 0.5)
             - checkpoint_interval (int, optional): Checkpoints will be saved
                 every <checkpoint_interval> epochs. (Default: 10)
+            - checkpoint_path (String, optional): Set this argument to continue
+                training the models of the specified checkpoint. The path
+                must have to following format:
+                    <'/path/to/results/[datetime]/checkpoints/epoch-[#]'>
+                and inside there must be the following files:
+                    - generator.pkl
+                    - discriminator.pkl
+                    - test_embds.pt
+                    - noise.pt
+                (Default: None)
             - num_workers (int, optional): Number of subprocesses to use
                 for data loading. (Default: 0, whichs means that the data
                 will be loaded in the main process.)
@@ -304,15 +386,16 @@ class StackGAN(object):
             print("[ERROR] Stage must be either 1 or 2")
             exit(1)
         elif stage == 1:
-            netG, netD = self.load_network_stageI()
-        elif stageI_path is None:
+            netG, netD = self.load_network_stageI(checkpoint_path)
+        elif stageI_path is None and not checkpoint_path:
             print("[ERROR] Set path for the Stage I model")
             exit(1)
         else:
-            netG, netD = self.load_network_stageII(stageI_path)
+            netG, netD = \
+                self.load_network_stageII(stageI_path, checkpoint_path)
 
-        netG = nn.DataParallel(netG).to(self.device)
-        netD = nn.DataParallel(netD).to(self.device)
+        # Starting epoch
+        starting_epoch = 1
 
         # Results directory
         date = datetime.now().strftime("%d-%b-%Y (%H.%M)")
@@ -350,13 +433,23 @@ class StackGAN(object):
         )
 
         # Set test dataset
-        self.set_test(test_dataloader, batch_size)
+        self.set_test(test_dataloader, batch_size, checkpoint_path)
 
         # Optimizers
         netG_params = []
         for p in netG.parameters():
             if p.requires_grad:
                 netG_params.append(p)
+
+        if checkpoint_path:
+            starting_epoch = \
+                int(''.join(
+                    c for c in checkpoint_path.split('-')[-1]
+                    if c.isdigit()
+                    )) + 1
+            decays = starting_epoch // lr_decay
+            lr_G = lr_G * (0.5 ** decays)
+            lr_D = lr_D * (0.5 ** decays)
 
         optimizer_G = optim.Adam(
             netG_params,
@@ -380,13 +473,13 @@ class StackGAN(object):
             f"\n{training_start.strftime('%d %B [%H:%M:%S] ')}"
             "Starting training..."
         )
-        last_epoch = num_epochs - 1
-        for epoch in range(num_epochs):
-            print(f"\nEpoch [{epoch + 1}/{num_epochs}]")
+        last_epoch = num_epochs
+        for epoch in range(starting_epoch, num_epochs + 1):
+            print(f"\nEpoch [{epoch}/{num_epochs}]")
             netG.train()
             netD.train()
 
-            if epoch % lr_decay == 0 and epoch > 0:
+            if epoch % lr_decay == 0 and epoch != starting_epoch:
                 generator_lr *= 0.5
                 for param_group in optimizer_G.param_groups:
                     param_group['lr'] = generator_lr
@@ -424,22 +517,22 @@ class StackGAN(object):
                 optimizer_G.step()
 
                 # Append losses
-                self.total_D_losses.append(errD.data)
-                self.total_G_losses.append(errG.data)
+                self.total_D_losses.append(errD.item())
+                self.total_G_losses.append(errG.item())
 
                 if (i % 20 == 0 or i == len(train_dataloader) - 1):
                     print(
                         f"Batch [{i + 1}/{len(train_dataloader)}]\tGenerator "
-                        f"Loss: {errG.data}\tDiscriminator "
-                        f"Loss: {errD.data}"
+                        f"Loss: {errG.item()}\tDiscriminator "
+                        f"Loss: {errD.item()}"
                     )
                 else:
                     print(f"Batch [{i + 1}/{len(train_dataloader)}]", end="\r")
 
-            self.evaluate(netG, epoch + 1)
+            self.evaluate(netG, epoch)
             if (epoch % checkpoint_interval == 0 or epoch == last_epoch):
                 save_checkpoints(netG, netD, self.total_G_losses,
-                                 self.total_D_losses, epoch + 1,
+                                 self.total_D_losses, epoch,
                                  self.checkpoints_dir)
 
         training_end = datetime.now()
@@ -458,8 +551,8 @@ class StackGAN(object):
             for k, v in self.__dict__.items():
                 f.write(f"{k}: {v}\n\n")
             f.write("### TRAINING PARAMETERS ###\n\n")
-            keys = list(locals().keys())[:11]
-            values = list(locals().values())[:11]
+            keys = list(locals().keys())[:12]
+            values = list(locals().values())[:12]
             for k, v in zip(keys, values):
                 f.write(f"{k}: {v}\n\n")
             f.write(f"training duration: {duration}")

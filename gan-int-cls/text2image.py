@@ -5,6 +5,7 @@ import torchvision.transforms as transforms
 
 import os
 import random
+import pickle
 import numpy as np
 from PIL import Image
 from datetime import datetime
@@ -53,6 +54,10 @@ class Text2Image(object):
         """Initialize the Text2Image model."""
         self.nz = nz
         self.nc = nc
+        self.ne = ne
+        self.ngf = ngf
+        self.ndf = ndf
+        self.nt = nt
         self.img_size = img_size
         self.num_test = num_test
 
@@ -104,28 +109,6 @@ class Text2Image(object):
             img_size=img_size,
             transform=self.image_transform
         )
-
-        # Networks
-        self.generator = Generator(
-            ne=ne,
-            nt=nt,
-            nz=nz,
-            ngf=ngf
-        )
-
-        self.discriminator = Discriminator(
-            ne=ne,
-            nt=nt,
-            ndf=ndf
-        )
-
-        if (self.device.type == 'cuda'):
-            self.generator = nn.DataParallel(self.generator).to(self.device)
-            self.discriminator = \
-                nn.DataParallel(self.discriminator).to(self.device)
-
-        self.generator.apply(self.init_weights)
-        self.discriminator.apply(self.init_weights)
 
     def init_weights(self, m):
         """Initialize the weights.
@@ -197,6 +180,50 @@ class Text2Image(object):
             f.close()
             save_images(real_images, self.images_dir, 0)
 
+    def load_network(self, checkpoint=None):
+        """Load the network for the Text to Image synthesis GAN."""
+        self.generator = Generator(
+            ne=self.ne,
+            nt=self.nt,
+            nz=self.nz,
+            ngf=self.ngf
+        )
+
+        self.discriminator = Discriminator(
+            ne=self.ne,
+            nt=self.nt,
+            ndf=self.ndf
+        )
+
+        self.generator = nn.DataParallel(self.generator).to(self.device)
+        self.discriminator = \
+            nn.DataParallel(self.discriminator).to(self.device)
+
+        if checkpoint:
+            try:
+                gen_path = os.path.join(checkpoint, 'generator.pkl')
+                gen_dict = torch.load(gen_path, map_location=lambda storage,
+                                      loc: storage)
+                self.generator.load_state_dict(gen_dict)
+
+                dis_path = os.path.join(checkpoint, 'discriminator.pkl')
+                dis_dict = torch.load(dis_path, map_location=lambda storage,
+                                      loc: storage)
+                self.discriminator.load_state_dict(dis_dict)
+            except FileNotFoundError:
+                print("[ERROR] Wrong checkpoint path or files don\'t exist.")
+            except pickle.UnpicklingError as e:
+                print("[ERROR] Something went wrong while loading"
+                      " the state dictionary")
+                print(f"[PICKLE] {e}")
+                exit(1)
+            except BaseException as err:
+                print(f"[ERROR] {err}")
+                exit(1)
+        else:
+            self.generator.apply(self.init_weights)
+            self.discriminator.apply(self.init_weights)
+
     def evaluate(self, epoch):
         """Generate images for the num_test test samples selected.
 
@@ -224,6 +251,7 @@ class Text2Image(object):
         int_beta=0.5,
         adam_momentum=0.5,
         checkpoint_interval=10,
+        checkpoint_path=None,
         num_workers=0
     ):
         """Train the Generative Adversarial Network.
@@ -246,10 +274,30 @@ class Text2Image(object):
                 Adam optimizers' betas. (Default: 0.5)
             - checkpoint_interval (int, optional): Checkpoints will be saved
                 every <checkpoint_interval> epochs. (Default: 10)
+            - checkpoint_path (String, optional): Set this argument to continue
+                training the models of the specified checkpoint. The path
+                must have to following format:
+                    <'/path/to/results/[datetime]/checkpoints/epoch-[#]'>
+                and inside there must be the following files:
+                    - generator.pkl
+                    - discriminator.pkl
+                (Default: None)
             - num_workers (int, optional): Number of subprocesses to use
                 for data loading. (Default: 0, whichs means that the data
                 will be loaded in the main process.)
         """
+        # Loading networks
+        self.load_network(checkpoint_path)
+
+        # Starting epoch
+        starting_epoch = 1
+        if checkpoint_path:
+            starting_epoch = \
+                int(''.join(
+                    c for c in checkpoint_path.split('-')[-1]
+                    if c.isdigit()
+                    )) + 1
+
         # Results directory
         date = datetime.now().strftime("%d-%b-%Y (%H.%M)")
         self.images_dir = os.path.join(
@@ -305,7 +353,8 @@ class Text2Image(object):
             f"\n{training_start.strftime('%d %B [%H:%M:%S] ')}"
             "Starting training..."
         )
-        for epoch in range(1, num_epochs + 1):
+        last_epoch = num_epochs
+        for epoch in range(starting_epoch, num_epochs + 1):
             print(f"\nEpoch [{epoch}/{num_epochs}]")
             self.generator.train()
             self.discriminator.train()
@@ -376,7 +425,7 @@ class Text2Image(object):
                     print(f"Batch [{i + 1}/{len(train_dataloader)}]", end="\r")
 
             self.evaluate(epoch)
-            if (epoch % checkpoint_interval == 0):
+            if (epoch % checkpoint_interval == 0 or epoch == last_epoch):
                 save_checkpoints(
                     self.generator,
                     self.discriminator,
@@ -397,3 +446,13 @@ class Text2Image(object):
             f"{duration.days} days, {duration.seconds // 3600} hours"
             f" and {(duration.seconds // 60) % 60} minutes"
         )
+        with open(log_file, 'w') as f:
+            f.write("### INITIALIZATION PARAMETERS ###\n\n")
+            for k, v in self.__dict__.items():
+                f.write(f"{k}: {v}\n\n")
+            f.write("### TRAINING PARAMETERS ###\n\n")
+            keys = list(locals().keys())[:9]
+            values = list(locals().values())[:9]
+            for k, v in zip(keys, values):
+                f.write(f"{k}: {v}\n\n")
+            f.write(f"training duration: {duration}")
