@@ -178,13 +178,13 @@ class StackGAN(object):
         """
         Stage1_G = STAGE1_G(self.ngf, self.nt, self.text_dim, self.nz)
         netG = STAGE2_G(Stage1_G, self.ngf, self.nt, self.text_dim, self.nz)
-        netG.STAGE1_G = nn.DataParallel(netG.STAGE1_G).to(self.device)
 
         netD = STAGE2_D(self.ndf, self.nt)
-        netD = nn.DataParallel(netD).to(self.device)
 
         if checkpoint:
             netG = nn.DataParallel(netG).to(self.device)
+            netD = nn.DataParallel(netD).to(self.device)
+            netG.STAGE1_G = nn.DataParallel(netG.STAGE1_G).to(self.device)
             try:
                 gen_path = os.path.join(checkpoint, 'generator.pkl')
                 gen_dict = torch.load(gen_path, map_location=lambda storage,
@@ -209,6 +209,7 @@ class StackGAN(object):
         else:
             netG.apply(self.init_weights)
             netD.apply(self.init_weights)
+            netG.STAGE1_G = nn.DataParallel(netG.STAGE1_G).to(self.device)
             try:
                 state_dict = \
                     torch.load(path, map_location=lambda storage, loc: storage)
@@ -225,6 +226,9 @@ class StackGAN(object):
                 print("[ERROR] Stage I state dictionary file is corrupted")
                 print(e)
                 exit(1)
+
+            netG = nn.DataParallel(netG).to(self.device)
+            netD = nn.DataParallel(netD).to(self.device)
 
         return netG, netD
 
