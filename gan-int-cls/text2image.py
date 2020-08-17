@@ -311,6 +311,12 @@ class Text2Image(object):
             'checkpoints'
         )
 
+        log_file = os.path.join(
+            self.results_dir,
+            date,
+            'log.txt'
+        )
+
         # Dataloaders
         train_dataloader = torch.utils.data.DataLoader(
             self.train_ds,
