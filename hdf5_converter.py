@@ -4,6 +4,7 @@ import numpy as np
 import os
 import sys
 import torchfile
+import pickle
 
 from argparse import ArgumentParser
 from matplotlib import image
@@ -65,7 +66,7 @@ def convert(dataset, configs, n):
     input data from the different directories. The HDF Structure is as
     follows:
 
-        - train / val / test
+        - train / test
             - Example Name 1
                 - name
                 - class
@@ -74,7 +75,7 @@ def convert(dataset, configs, n):
                 - n embeddings
                 - n texts
 
-    Inputs:
+    Args:
         - dataset: the name of the dataset
         - configs: the configuration data of the config.json file
         - n: number of embeddings to keep (default: 10)
@@ -92,7 +93,6 @@ def convert(dataset, configs, n):
     hf = h5py.File(dataset + '.h5', 'w')
 
     train = hf.create_group('train')
-    val = hf.create_group('val')
     test = hf.create_group('test')
 
     train_classes = get_lines(configs["train_file"])
@@ -114,7 +114,7 @@ def convert(dataset, configs, n):
         if _class.name in train_classes:
             split = train
         elif _class.name in val_classes:
-            split = val
+            split = train
         elif _class.name in test_classes:
             split = test
         else:
@@ -125,18 +125,31 @@ def convert(dataset, configs, n):
 
         for embd_file in os.scandir(_class.path):
             name = embd_file.name.split('.')[0]
-            tf = torchfile.load(
-                embd_file.path,
-                force_8bytes_long=True
-            )
-
-            img = open(
-                os.path.join(
-                    configs['images_path'],
-                    tf[b'img'].decode('UTF-8')
-                ),
-                'rb'
-            ).read()
+            if embd_file.name.endswith('.t7'):
+                tf = torchfile.load(
+                    embd_file.path,
+                    force_8bytes_long=True
+                )
+                img = open(
+                    os.path.join(
+                        configs['images_path'],
+                        tf[b'img'].decode('UTF-8')
+                    ),
+                    'rb'
+                ).read()
+                embds = tf[b'txt']
+            else:
+                # Embeddings produced by RoBERTa
+                with open(embd_file.path, 'rb') as f:
+                    tf = pickle.load(f)
+                img = open(
+                    os.path.join(
+                        configs['images_path'],
+                        tf['img']
+                    ),
+                    'rb'
+                ).read()
+                embds = tf['txt'].astype("f4")
 
             try:
                 texts = np.array(
@@ -164,8 +177,6 @@ def convert(dataset, configs, n):
                     get_lines(dest),
                     dtype=h5py.string_dtype(encoding='utf-8')
                 )
-
-            embds = tf[b'txt']
 
             if n < 10:
                 rand_inds = np.random.choice(range(len(embds)), n)
