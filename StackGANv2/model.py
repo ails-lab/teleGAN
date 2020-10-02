@@ -477,9 +477,9 @@ class D_NET256(nn.Module):
         if c_code is not None:
             c_code = c_code.view(-1, self.ef_dim, 1, 1)
             c_code = c_code.repeat(1, 1, 4, 4)
-            # state size (ngf+egf) x 4 x 4
+            # state size (ndf+egf) x 4 x 4
             h_c_code = torch.cat((c_code, x_code), 1)
-            # state size ngf x in_size x in_size
+            # state size ndf*8 x 4 x 4
             h_c_code = self.jointConv(h_c_code)
         else:
             h_c_code = x_code
