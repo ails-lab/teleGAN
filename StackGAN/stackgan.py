@@ -182,9 +182,9 @@ class StackGAN(object):
         netD = STAGE2_D(self.ndf, self.nt)
 
         if checkpoint:
+            netG.STAGE1_G = nn.DataParallel(netG.STAGE1_G).to(self.device)
             netG = nn.DataParallel(netG).to(self.device)
             netD = nn.DataParallel(netD).to(self.device)
-            netG.STAGE1_G = nn.DataParallel(netG.STAGE1_G).to(self.device)
             try:
                 gen_path = os.path.join(checkpoint, 'generator.pkl')
                 gen_dict = torch.load(gen_path, map_location=lambda storage,
