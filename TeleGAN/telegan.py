@@ -19,7 +19,7 @@ from model import Generator, DNET_BAW, DNET_COLORED, DNET_SR
 
 
 class TeleGAN(object):
-    """TeleGAN class for the Text To Image Synthesis GAN.
+    """TeleGAN class for the Text To Image Synthesis task.
 
     Args:
         - dataset (string): Path to the [data].h5 file
