@@ -1,4 +1,4 @@
-"""This module implements the TeleGAN model for text to image synthesis."""
+"""This module implements the TeleGAN model for text to image synthesis task."""
 import torch
 import torch.nn as nn
 import torch.optim as optim
