@@ -61,3 +61,11 @@ obj.train(3, "path/to/generator.pkl") # from stage 2
 ```
 
 Please check the corresponding documentation for modifiable parameters for the training process.
+
+<h2>Examples</h2>
+<h3>CUB</h3>
+<img src="images/birds-examples.jpg"></img>
+
+
+<h3>Flowers</h3>
+<img src="images/flowers-examples.jpg"></img>
