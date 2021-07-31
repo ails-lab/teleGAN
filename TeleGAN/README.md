@@ -26,3 +26,14 @@ Our model utilizes previous work in the fields of <a href="https://arxiv.org/abs
   <li>Download the image data for both datasets (<a href="http://www.vision.caltech.edu/visipedia/CUB-200-2011.html">birds</a>, <a href="https://www.robots.ox.ac.uk/~vgg/data/flowers/102/">flowers</a>)</l1>
   <li>Modify the paths in the <a href="../config.json">config.json</a> file to point to the corresponding data</li>
   <li>Use <a href="../hdf5_converter.py">hdf5_converter.py</a> to create an .h5 file for each dataset</li>
+
+<h2>Dependencies</h2>
+
+
+Python 3.8 and Pytorch 
+
+
+Also, please install the necessary packages listed in the <a href="requirements">requirements</a> file, using the following command:
+
+`pip install -r requirements`
+
