@@ -39,3 +39,25 @@ Also, please install the necessary packages listed in the <a href="requirements"
 
 `pip install -r requirements`
 
+
+<h2>Training</h2>
+You could train the model as follows:
+
+```
+# Stage 1
+from telegan import TeleGAN
+obj = TeleGAN("path/to/flowers.h5", "path/to/results/dir")
+obj.train(1)
+
+# Stage 2
+from telegan import TeleGAN
+obj = TeleGAN("path/to/flowers.h5", "path/to/results/dir")
+obj.train(2, "path/to/generator.pkl") # from stage 1
+
+# Stage 3
+from telegan import TeleGAN
+obj = TeleGAN("path/to/flowers.h5", "path/to/results/dir")
+obj.train(3, "path/to/generator.pkl") # from stage 2
+```
+
+Please check the corresponding documentation for modifiable parameters for the training process.
